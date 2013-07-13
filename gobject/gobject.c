@@ -193,9 +193,11 @@ struct _GObjectNotifyQueue
 G_LOCK_DEFINE_STATIC (closure_array_mutex);
 G_LOCK_DEFINE_STATIC (weak_refs_mutex);
 G_LOCK_DEFINE_STATIC (toggle_refs_mutex);
+G_LOCK_DEFINE_STATIC (dispatch_notify_mutex);
 static GQuark	            quark_closure_array = 0;
 static GQuark	            quark_weak_refs = 0;
 static GQuark	            quark_toggle_refs = 0;
+static GQuark               quark_dispatch_notify = 0;
 static GQuark               quark_notify_queue;
 static GParamSpecPool      *pspec_pool = NULL;
 static gulong	            gobject_signals[LAST_SIGNAL] = { 0, };
@@ -451,6 +453,7 @@ g_object_do_class_init (GObjectClass *class)
   quark_weak_locations = g_quark_from_static_string ("GObject-weak-locations");
   quark_toggle_refs = g_quark_from_static_string ("GObject-toggle-references");
   quark_notify_queue = g_quark_from_static_string ("GObject-notify-queue");
+  quark_dispatch_notify = g_quark_from_static_string ("GObject-dispatch-notify");
   pspec_pool = g_param_spec_pool_new (TRUE);
 
   class->constructor = g_object_constructor;
@@ -1016,6 +1019,7 @@ g_object_real_dispose (GObject *object)
   g_signal_handlers_destroy (object);
   g_datalist_id_set_data (&object->qdata, quark_closure_array, NULL);
   g_datalist_id_set_data (&object->qdata, quark_weak_refs, NULL);
+  g_datalist_id_set_data (&object->qdata, quark_dispatch_notify, NULL);
 }
 
 static void
@@ -1035,6 +1039,126 @@ g_object_finalize (GObject *object)
 #endif	/* G_ENABLE_DEBUG */
 }
 
+typedef struct {
+  GObject *object;
+  guint n_dispatchers;
+  struct {
+    GDispatchNotify notify;
+    gpointer data;
+  } dispatchers[1];  /* flexible array */
+} DispatchNotifyStack;
+
+/**
+ * g_object_add_dispatch_notify: (skip)
+ * @object: #GObject
+ * @notify:
+ * @data: extra data to pass to @notify
+ *
+ * FIXME
+ */
+void
+g_object_add_dispatch_notify (GObject         *object,
+                              GDispatchNotify  notify,
+                              gpointer         data)
+{
+  DispatchNotifyStack *dstack;
+  guint i;
+
+  g_return_if_fail (G_IS_OBJECT (object));
+  g_return_if_fail (notify != NULL);
+  g_return_if_fail (object->ref_count >= 1);
+
+  G_LOCK (dispatch_notify_mutex);
+  dstack = g_datalist_id_remove_no_notify (&object->qdata, quark_dispatch_notify);
+  if (dstack)
+    {
+      i = dstack->n_dispatchers++;
+      dstack = g_realloc (dstack, sizeof (*dstack) + sizeof (dstack->dispatchers[0]) * i);
+    }
+  else
+    {
+      dstack = g_renew (DispatchNotifyStack, NULL, 1);
+      dstack->object = object;
+      dstack->n_dispatchers = 1;
+      i = 0;
+    }
+
+  dstack->dispatchers[i].notify = notify;
+  dstack->dispatchers[i].data = data;
+  g_datalist_id_set_data_full (&object->qdata, quark_dispatch_notify, dstack, g_free);
+  G_UNLOCK (dispatch_notify_mutex);
+}
+
+/**
+ * g_object_remove_dispatch_notify: (skip)
+ * @object: #GObject to remove a weak reference from
+ * @notify: callback to search for
+ * @data: data to search for
+ *
+ * FIXME
+ */
+void
+g_object_remove_dispatch_notify (GObject         *object,
+                                 GDispatchNotify  notify,
+                                 gpointer         data)
+{
+  DispatchNotifyStack *dstack;
+  gboolean found_one = FALSE;
+
+  g_return_if_fail (G_IS_OBJECT (object));
+  g_return_if_fail (notify != NULL);
+
+  G_LOCK (dispatch_notify_mutex);
+  dstack = g_datalist_id_get_data (&object->qdata, quark_dispatch_notify);
+  if (dstack != NULL)
+    {
+      guint i;
+
+      for (i = 0; i < dstack->n_dispatchers; i++)
+        {
+	  if (dstack->dispatchers[i].notify == notify &&
+	      dstack->dispatchers[i].data == data)
+	    {
+	      found_one = TRUE;
+	      dstack->n_dispatchers -= 1;
+
+              if (i != dstack->n_dispatchers)
+                dstack->dispatchers[i] = dstack->dispatchers[dstack->n_dispatchers];
+
+              break;
+	    }
+        }
+    }
+  G_UNLOCK (dispatch_notify_mutex);
+
+  if (!found_one)
+    g_warning ("%s: couldn't find notify dispatcher %p(%p)", G_STRFUNC, notify, data);
+}
+
+static void
+dispatch_notify (GObject     *object,
+                 guint        n_pspecs,
+                 GParamSpec **pspecs)
+{
+  DispatchNotifyStack dstack, *dstackptr;
+  guint i;
+
+  G_LOCK (dispatch_notify_mutex);
+  dstackptr = g_datalist_id_get_data (&object->qdata, quark_dispatch_notify);
+  if (dstackptr != NULL)
+    dstack = *dstackptr;
+  else
+    {
+      dstack.object = object;
+      dstack.n_dispatchers = 0;
+    }
+  G_UNLOCK (dispatch_notify_mutex);
+
+  g_assert (object == dstack.object);
+
+  for (i = 0; i < dstack.n_dispatchers; i++)
+    dstack.dispatchers[i].notify (dstack.object, n_pspecs, pspecs, dstack.dispatchers[i].data);
+}
 
 static void
 g_object_dispatch_properties_changed (GObject     *object,
@@ -1042,6 +1166,8 @@ g_object_dispatch_properties_changed (GObject     *object,
 				      GParamSpec **pspecs)
 {
   guint i;
+
+  dispatch_notify (object, n_pspecs, pspecs);
 
   for (i = 0; i < n_pspecs; i++)
     g_signal_emit (object, gobject_signals[NOTIFY], g_quark_from_string (pspecs[i]->name), pspecs[i]);
@@ -3184,6 +3310,7 @@ g_object_unref (gpointer _object)
       g_datalist_id_set_data (&object->qdata, quark_closure_array, NULL);
       g_signal_handlers_destroy (object);
       g_datalist_id_set_data (&object->qdata, quark_weak_refs, NULL);
+      g_datalist_id_set_data (&object->qdata, quark_dispatch_notify, NULL);
       
       /* decrement the last reference */
       old_ref = g_atomic_int_add (&object->ref_count, -1);

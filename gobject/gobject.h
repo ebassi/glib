@@ -601,6 +601,20 @@ gulong	    g_signal_connect_object           (gpointer	       instance,
 					       gpointer	       gobject,
 					       GConnectFlags   connect_flags);
 
+typedef void (* GDispatchNotify) (GObject     *object,
+                                  guint        n_pspecs,
+                                  GParamSpec **pspecs,
+                                  gpointer     data);
+
+GLIB_AVAILABLE_IN_2_38
+void        g_object_add_dispatch_notify      (GObject         *object,
+                                               GDispatchNotify  func,
+                                               gpointer         data);
+GLIB_AVAILABLE_IN_2_38
+void        g_object_remove_dispatch_notify   (GObject         *object,
+                                               GDispatchNotify  notify,
+                                               gpointer         data);
+
 /*< protected >*/
 GLIB_AVAILABLE_IN_ALL
 void        g_object_force_floating           (GObject        *object);

@@ -55,6 +55,7 @@
 #include <glib/ghostutils.h>
 #include <glib/giochannel.h>
 #include <glib/gkeyfile.h>
+#include <glib/gindexset.h>
 #include <glib/glist.h>
 #include <glib/gmacros.h>
 #include <glib/gmain.h>

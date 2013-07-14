@@ -52,6 +52,7 @@ test_programs = \
 	hmac				\
 	hook				\
 	hostutils			\
+	index-set			\
 	keyfile				\
 	list				\
 	logging				\

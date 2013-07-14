@@ -130,6 +130,7 @@ libglib_2_0_la_SOURCES = 	\
 	ghmac.c			\
 	ghook.c			\
 	ghostutils.c		\
+	gindexset.c		\
 	giochannel.c    	\
 	gkeyfile.c		\
 	glibintl.h		\
@@ -267,6 +268,7 @@ glibsubinclude_HEADERS = \
 	ghostutils.h	\
 	gi18n.h		\
 	gi18n-lib.h	\
+	gindexset.h	\
 	giochannel.h	\
 	gkeyfile.h 	\
 	glist.h		\

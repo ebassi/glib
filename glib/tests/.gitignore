@@ -29,6 +29,7 @@ hmac
 hook
 hostutils
 include
+index-set
 keyfile
 list
 logging

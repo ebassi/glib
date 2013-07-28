@@ -165,6 +165,11 @@ gboolean    g_desktop_app_info_launch_uris_as_manager (GDesktopAppInfo          
 						       GError                    **error);
 
 
+GLIB_AVAILABLE_IN_2_30
+gchar ** g_desktop_app_info_search (const gchar *term, gint max_hits);
+GLIB_AVAILABLE_IN_2_30
+gchar *** g_desktop_app_info_search_full (const gchar *term, gint max_hits);
+
 G_END_DECLS
 
 #endif /* __G_DESKTOP_APP_INFO_H__ */

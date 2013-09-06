@@ -129,6 +129,12 @@ gstring_free (GString *gstring)
   g_string_free (gstring, TRUE);
 }
 
+static GRange *
+grange_copy (GRange *grange)
+{
+  return g_range_init_with_range (g_range_alloc (), grange);
+}
+
 G_DEFINE_BOXED_TYPE (GClosure, g_closure, g_closure_ref, g_closure_unref)
 G_DEFINE_BOXED_TYPE (GValue, g_value, value_copy, value_free)
 G_DEFINE_BOXED_TYPE (GValueArray, g_value_array, g_value_array_copy, g_value_array_free)
@@ -139,7 +145,9 @@ G_DEFINE_BOXED_TYPE (GHashTable, g_hash_table, g_hash_table_ref, g_hash_table_un
 G_DEFINE_BOXED_TYPE (GArray, g_array, g_array_ref, g_array_unref)
 G_DEFINE_BOXED_TYPE (GPtrArray, g_ptr_array,g_ptr_array_ref, g_ptr_array_unref)
 G_DEFINE_BOXED_TYPE (GByteArray, g_byte_array, g_byte_array_ref, g_byte_array_unref)
-G_DEFINE_BOXED_TYPE (GBytes, g_bytes, g_bytes_ref, g_bytes_unref);
+G_DEFINE_BOXED_TYPE (GBytes, g_bytes, g_bytes_ref, g_bytes_unref)
+G_DEFINE_BOXED_TYPE (GRange, g_range, grange_copy, g_range_free)
+G_DEFINE_BOXED_TYPE (GIndexSet, g_index_set, g_index_set_ref, g_index_set_unref)
 
 G_DEFINE_BOXED_TYPE (GRegex, g_regex, g_regex_ref, g_regex_unref)
 G_DEFINE_BOXED_TYPE (GMatchInfo, g_match_info, g_match_info_ref, g_match_info_unref)

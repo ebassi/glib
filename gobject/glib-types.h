@@ -178,6 +178,24 @@ typedef gsize GType;
 #define G_TYPE_TIME_ZONE (g_time_zone_get_type ())
 
 /**
+ * G_TYPE_RANGE:
+ *
+ * The #GType for a boxed type holding a #GRange.
+ *
+ * Since: 2.38
+ */
+#define G_TYPE_RANGE (g_range_get_type ())
+
+/**
+ * G_TYPE_INDEX_SET:
+ *
+ * The #GType for a boxed type holding a #GIndexSet.
+ *
+ * Since: 2.38
+ */
+#define G_TYPE_INDEX_SET (g_index_set_get_type ())
+
+/**
  * G_TYPE_IO_CHANNEL:
  *
  * The #GType for #GIOChannel.
@@ -322,6 +340,10 @@ GLIB_AVAILABLE_IN_2_36
 GType   g_checksum_get_type        (void) G_GNUC_CONST;
 GLIB_AVAILABLE_IN_2_36
 GType   g_markup_parse_context_get_type (void) G_GNUC_CONST;
+GLIB_AVAILABLE_IN_2_38
+GType   g_range_get_type           (void) G_GNUC_CONST;
+GLIB_AVAILABLE_IN_2_38
+GType   g_index_set_get_type       (void) G_GNUC_CONST;
 
 GLIB_DEPRECATED_FOR('G_TYPE_VARIANT')
 GType   g_variant_get_gtype        (void) G_GNUC_CONST;

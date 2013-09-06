@@ -1,4 +1,5 @@
-/* GIO - GLib Input, Output and Streaming Library
+/* GLIB - Library of useful routines for C programming
+ * gindexset.c: Index set
  *
  * Copyright (C) 2013  Emmanuele Bassi
  *
@@ -32,6 +33,8 @@
 #include "gtestutils.h"
 #include "gmessages.h"
 
+#define VERBOSE 1
+
 /**
  * SECTION:gindexset
  * @title: GIndexSet
@@ -50,15 +53,52 @@
  * Index sets are allocated using g_index_set_alloc(), and initialized
  * using one of the initialization functions; a #GIndexSet instance can
  * be initialized multiple times, allowing reuse of the same resources
- * for different index sets.
+ * for different index sets. #GIndexSet is also reference counted: use
+ * g_index_set_ref() to acquire a reference, and g_index_set_unref() to
+ * release it. If g_index_set_unref() releases the last reference on an
+ * index set instance, the resources allocatd by g_index_set_alloc() will
+ * be released.
  *
  * If a #GIndexSet is initialized as empty, or with a list of indices, it
  * is immediately set as immutable: no further modifications are allowed
- * on the index set. If you want to add indices to a #GIndexSet using
- * g_index_set_add_index(), you must call g_index_set_init() to initialize
- * the #GIndexSet instance and make it mutable; once you finished adding
+ * on the index set after the initialization function returns. If you want
+ * to add indices to a #GIndexSet using g_index_set_add_index(), or remove
+ * indices using g_index_set_remove_index(), you must call g_index_set_init()
+ * to initialize a mutable #GIndexSet instance; once you finished adding
  * the desired indices, call g_index_set_make_immutable(). You can check
  * if a #GIndexSet instance is mutable by using g_index_set_is_mutable().
+ * It is possible to reinitialize any #GIndexSet instance to make it mutable,
+ * though its current contents will be lost.
+ *
+ * To enumerate the contents of a #GIndexSet you can either use the
+ * g_index_set_get_index() function in a while loop, for instance:
+ *
+ * |[
+ *   /&ast; iterate forwards &ast;/
+ *   guint cur_index = g_index_set_get_first_index (index_set);
+ *   while (cur_index != G_INDEX_SET_NOT_FOUND)
+ *     {
+ *       ...
+ *       cur_index =
+ *         g_index_set_get_index (index_set,
+ *                                G_INDEX_SET_PREDICATE_GREATER_THAN,
+ *                                cur_index);
+ *     }
+ *
+ *   /&ast; iterate backwards &ast;/
+ *   guint cur_index = g_index_set_get_last_index (index_set);
+ *   while (cur_index != G_INDEX_SET_NOT_FOUND)
+ *     {
+ *       ...
+ *       cur_index =
+ *         g_index_set_get_index (index_set,
+ *                                G_INDEX_SET_PREDICATE_LESS_THAN,
+ *                                cur_index);
+ *     }
+ * ]|
+ *
+ * or you can use the g_index_set_enumerate_in_range() and the
+ * g_index_set_enumerate() functions.
  */
 
 /*** GRange ***/
@@ -433,12 +473,15 @@ g_index_set_ensure_ranges (const GIndexSet *index_set)
     {
       const GRange *range = g_index_set_get_range (index_set, i);
 
+      /* ensure that the ranges are sorted in ascending order */
       if (i > 0)
         g_assert (range->location > last);
       else
         g_assert (range->location >= last);
 
+      /* ensure that there are no empty ranges */
       g_assert (g_range_get_max (range) > range->location);
+
       last = g_range_get_max (range);
     }
 }
@@ -593,14 +636,13 @@ g_index_set_init_empty (GIndexSet *index_set)
   g_return_val_if_fail (index_set != NULL, NULL);
 
   g_index_set_clear_ranges (index_set);
-  g_index_set_make_immutable (index_set);
 
-  return index_set;
+  return g_index_set_make_immutable (index_set);
 }
 
 static inline void
-g_index_set_add_range_internal (GIndexSet *index_set,
-                                GRange    *range)
+g_index_set_add_range_internal (GIndexSet    *index_set,
+                                const GRange *range)
 {
   guint pos;
 
@@ -627,6 +669,7 @@ g_index_set_add_range_internal (GIndexSet *index_set,
       g_array_insert_val (index_set->ranges, pos, copy);
     }
 
+  /* coalesce the preceding range intervals */
   while (pos > 0)
     {
       GRange *r = g_index_set_get_range (index_set, pos - 1);
@@ -643,6 +686,7 @@ g_index_set_add_range_internal (GIndexSet *index_set,
         }
     }
 
+  /* and now coalesce the following intervals */
   while (pos + 1 < index_set->ranges->len)
     {
       GRange *r = g_index_set_get_range (index_set, pos + 1);
@@ -688,9 +732,7 @@ g_index_set_init_with_index (GIndexSet *index_set,
 
   g_array_insert_val (index_set->ranges, 0, range);
 
-  g_index_set_make_immutable (index_set);
-
-  return index_set;
+  return g_index_set_make_immutable (index_set);
 }
 
 /**
@@ -728,9 +770,7 @@ g_index_set_init_with_indicesv (GIndexSet   *index_set,
       g_index_set_add_range_internal (index_set, &range);
     }
 
-  g_index_set_make_immutable (index_set);
-
-  return index_set;
+  return g_index_set_make_immutable (index_set);
 }
 
 /**
@@ -771,9 +811,7 @@ g_index_set_init_with_indices (GIndexSet *index_set,
 
   va_end (args);
 
-  g_index_set_make_immutable (index_set);
-
-  return index_set;
+  return g_index_set_make_immutable (index_set);
 }
 
 /**
@@ -801,9 +839,44 @@ g_index_set_init_with_range (GIndexSet    *index_set,
 
   g_range_init_with_range (&copy, range);
   g_index_set_add_range_internal (index_set, &copy);
-  g_index_set_make_immutable (index_set);
 
-  return index_set;
+  return g_index_set_make_immutable (index_set);
+}
+
+/**
+ * g_index_set_init_with_set:
+ * @index_set: a #GIndexSet
+ * @set: a #GIndexSet
+ *
+ * Initializes @index_set with all the indices inside @set, and makes it
+ * immutable.
+ *
+ * Returns: the initialized, immutable #GIndexSet
+ *
+ * Since: 2.38
+ */
+GIndexSet *
+g_index_set_init_with_set (GIndexSet       *index_set,
+                           const GIndexSet *set)
+{
+  guint i;
+
+  g_return_val_if_fail (index_set != NULL, NULL);
+  g_return_val_if_fail (set != NULL, index_set);
+
+  g_index_set_clear_ranges (index_set);
+
+  if (set->ranges == NULL || set->ranges->len == 0)
+    return g_index_set_make_immutable (index_set);
+
+  for (i = 0; i < set->ranges->len; i++)
+    {
+      const GRange *r = g_index_set_get_range (index_set, i);
+
+      g_index_set_add_range_internal (index_set, r);
+    }
+
+  return g_index_set_make_immutable (index_set);
 }
 
 /**
@@ -812,14 +885,18 @@ g_index_set_init_with_range (GIndexSet    *index_set,
  *
  * Makes @index_set immutable.
  *
+ * Returns: the immutable #GIndexSet
+ *
  * Since: 2.38
  */
-void
+GIndexSet *
 g_index_set_make_immutable (GIndexSet *index_set)
 {
-  g_return_if_fail (index_set != NULL);
+  g_return_val_if_fail (index_set != NULL, NULL);
 
   index_set->is_mutable = FALSE;
+
+  return index_set;
 }
 
 /**
@@ -864,7 +941,7 @@ g_index_set_get_size (const GIndexSet *index_set)
 
   for (i = 0; i < index_set->ranges->len; i++)
     {
-      const GRange *range = &g_array_index (index_set->ranges, GRange, i);
+      const GRange *range = g_index_set_get_range (index_set, i);
 
       count += range->length;
     }
@@ -888,17 +965,13 @@ g_index_set_get_size (const GIndexSet *index_set)
 guint
 g_index_set_get_first_index (const GIndexSet *index_set)
 {
-  const GRange *range;
-
   g_return_val_if_fail (index_set != NULL, G_INDEX_SET_NOT_FOUND);
 
   if (index_set->ranges == NULL ||
       index_set->ranges->len == 0)
     return G_INDEX_SET_NOT_FOUND;
 
-  range = &g_array_index (index_set->ranges, GRange, 0);
-
-  return range->location;
+  return g_index_set_get_range (index_set, 0)->location;
 }
 
 /**
@@ -925,9 +998,9 @@ g_index_set_get_last_index (const GIndexSet *index_set)
       index_set->ranges->len == 0)
     return G_INDEX_SET_NOT_FOUND;
 
-  range = &g_array_index (index_set->ranges, GRange, index_set->ranges->len - 1);
+  range = g_index_set_get_range (index_set, index_set->ranges->len - 1);
 
-  return range->location + range->length - 1;
+  return g_range_get_max (range) - 1;
 }
 
 /**
@@ -947,61 +1020,63 @@ g_index_set_get_index (const GIndexSet    *index_set,
                        GIndexSetPredicate  predicate,
                        guint               index_)
 {
-  guint i;
+  const GRange *r;
+  guint pos;
 
   g_return_val_if_fail (index_set != NULL, G_INDEX_SET_NOT_FOUND);
 
-  if (index_set->ranges == NULL ||
-      index_set->ranges->len == 0)
+  if (index_set->ranges == NULL || index_set->ranges->len == 0)
     return G_INDEX_SET_NOT_FOUND;
 
-  for (i = 0; i < index_set->ranges->len; i++)
+  switch (predicate)
     {
-      const GRange *range = &g_array_index (index_set->ranges, GRange, i);
-      guint j;
+    case G_INDEX_SET_PREDICATE_GREATER_THAN:
+      if (index_ + 1 == G_INDEX_SET_NOT_FOUND)
+        return G_INDEX_SET_NOT_FOUND;
+      else
+        index_ += 1;
 
-      /* short circuiting */
-      if (predicate == G_INDEX_SET_PREDICATE_LESS_THAN ||
-          predicate == G_INDEX_SET_PREDICATE_LESS_THAN_OR_EQUAL)
-        {
-          if (range->location > index_)
-            break;
-        }
+      /* fall through */
+    case G_INDEX_SET_PREDICATE_GREATER_THAN_OR_EQUAL:
+      if (index_ == G_INDEX_SET_NOT_FOUND)
+        return G_INDEX_SET_NOT_FOUND;
 
-      if (predicate == G_INDEX_SET_PREDICATE_GREATER_THAN ||
-          predicate == G_INDEX_SET_PREDICATE_GREATER_THAN_OR_EQUAL)
-        {
-          if (range->location + range->length < index_)
-            break;
-        }
+      pos = g_index_set_get_position (index_set, index_);
+      if (pos >= index_set->ranges->len)
+        return G_INDEX_SET_NOT_FOUND;
 
-      for (j = range->location;
-           j < range->location + range->length;
-           j++)
-        {
-          switch (predicate)
-            {
-            case G_INDEX_SET_PREDICATE_LESS_THAN:
-              if (j < index_)
-                return j;
-              break;
+      r = g_index_set_get_range (index_set, pos);
+      if (g_range_contains_location (r, index_))
+        return index_;
 
-            case G_INDEX_SET_PREDICATE_LESS_THAN_OR_EQUAL:
-              if (j <= index_)
-                return j;
-              break;
+      return r->location;
 
-            case G_INDEX_SET_PREDICATE_GREATER_THAN_OR_EQUAL:
-              if (j >= index_)
-                return j;
-              break;
+    case G_INDEX_SET_PREDICATE_LESS_THAN:
+      if (index_ == 0)
+        return G_INDEX_SET_NOT_FOUND;
+      else
+        index_ -= 1;
 
-            case G_INDEX_SET_PREDICATE_GREATER_THAN:
-              if (j > index_)
-                return j;
-              break;
-            }
-        }
+      /* fall through */
+    case G_INDEX_SET_PREDICATE_LESS_THAN_OR_EQUAL:
+      pos = g_index_set_get_position (index_set, index_);
+      if (pos >= index_set->ranges->len)
+        return G_INDEX_SET_NOT_FOUND;
+
+      r = g_index_set_get_range (index_set, pos);
+      if (g_range_contains_location (r, index_))
+        return index_;
+
+      if (pos == 0)
+        return G_INDEX_SET_NOT_FOUND;
+      else
+        pos -= 1;
+
+      r = g_index_set_get_range (index_set, pos);
+      return g_range_get_max (r) - 1;
+
+    default:
+      break;
     }
 
   return G_INDEX_SET_NOT_FOUND;
@@ -1036,7 +1111,7 @@ g_index_set_contains_index (const GIndexSet *index_set,
   if (pos >= index_set->ranges->len)
     return FALSE;
 
-  range = &g_array_index (index_set->ranges, GRange, pos);
+  range = g_index_set_get_range (index_set, pos);
 
   return g_range_contains_location (range, index_);
 }
@@ -1057,23 +1132,30 @@ gboolean
 g_index_set_contains_range (const GIndexSet *index_set,
                             const GRange    *range)
 {
-  guint i;
+  const GRange *r;
+  guint pos;
 
   g_return_val_if_fail (index_set != NULL, FALSE);
+  g_return_val_if_fail (range != NULL, FALSE);
 
-  if (index_set->ranges == NULL ||
-      index_set->ranges->len == 0)
+  if (range->length == 0)
+    return TRUE;
+
+  /* if the range crosses G_INDEX_SET_NOT_FOUND then we abort */
+  if (range->location > G_INDEX_SET_NOT_FOUND - range->length)
     return FALSE;
 
-  for (i = 0; i < index_set->ranges->len; i++)
-    {
-      const GRange *set_range = &g_array_index (index_set->ranges, GRange, i);
-      GRange res;
+  if (index_set->ranges == NULL || index_set->ranges->len == 0)
+    return FALSE;
 
-      g_range_union (set_range, range, &res);
-      if (g_range_equals (&res, set_range))
-        return TRUE;
-    }
+  pos = g_index_set_get_position (index_set, range->location);
+  if (pos >= index_set->ranges->len)
+    return FALSE;
+
+  r = g_index_set_get_range (index_set, pos);
+  if (g_range_contains_location (r, range->location) &&
+      g_range_contains_location (r, g_range_get_max (range) - 1))
+    return TRUE;
 
   return FALSE;
 }
@@ -1184,9 +1266,224 @@ g_index_set_add_range (GIndexSet    *index_set,
   GRange copy;
 
   g_return_if_fail (index_set != NULL);
-  g_return_if_fail (range != NULL);
   g_return_if_fail (g_index_set_is_mutable (index_set));
+  g_return_if_fail (range != NULL);
 
   g_range_init_with_range (&copy, range);
   g_index_set_add_range_internal (index_set, &copy);
+}
+
+/**
+ * g_index_set_add_set:
+ * @index_set: a #GIndexSet
+ * @set: a #GIndexSet
+ *
+ * Adds the indices in @set to a mutable @index_set.
+ *
+ * Since: 2.38
+ */
+void
+g_index_set_add_set (GIndexSet       *index_set,
+                     const GIndexSet *set)
+{
+  guint i;
+
+  g_return_if_fail (index_set != NULL);
+  g_return_if_fail (g_index_set_is_mutable (index_set));
+  g_return_if_fail (set != NULL);
+
+  if (set->ranges == NULL || set->ranges->len == 0)
+    return;
+
+  for (i = 0; i < set->ranges->len; i++)
+    {
+      const GRange *r = g_index_set_get_range (set, i);
+
+      g_index_set_add_range_internal (index_set, r);
+    }
+}
+
+static void
+g_index_set_remove_range (GIndexSet    *index_set,
+                          const GRange *range)
+{
+  guint pos;
+
+  if (index_set->ranges == NULL || index_set->ranges->len == 0)
+    return;
+
+  pos = g_index_set_get_position (index_set, index_);
+  if (pos >= index_set->ranges->len)
+    return;
+}
+
+/**
+ * g_index_set_remove_index:
+ * @index_set: a #GIndexSet
+ * @index_: the index to remove
+ *
+ * Removes @index_ from the @index_set.
+ *
+ * Since: 2.38
+ */
+void
+g_index_set_remove_index (GIndexSet *index_set,
+                          guint      index_)
+{
+  GRange range = G_RANGE_INIT (index_, 1);
+
+  g_return_if_fail (index_set != NULL);
+
+  g_index_set_remove_range (index_set, &range);
+}
+
+/**
+ * g_index_set_enumerate_in_range:
+ * @index_set: a #GIndexSet
+ * @range: a #GRange
+ * @flags: flags controlling the enumeration
+ * @func: (scope call): a function to be called on every element of the set
+ * @data: (closure): data to be passed to @func
+ *
+ * Calls @func on all elements inside the @index_set within the given @range.
+ * The function should return %FALSE to continue the enumeration, or %TRUE to
+ * stop it.
+ *
+ * The @flags can be used to control the direction of the enumeration.
+ *
+ * It is not safe to modify the @index_set during the enumeration.
+ *
+ * Since: 2.38
+ */
+void
+g_index_set_enumerate_in_range (const GIndexSet         *index_set,
+                                const GRange            *range,
+                                GIndexSetEnumerateFlags  flags,
+                                GIndexSetEnumerateFunc   func,
+                                gpointer                 data)
+{
+  gboolean is_reverse;
+  guint start, stop;
+  guint i = 0;
+
+  g_return_if_fail (index_set != NULL);
+  g_return_if_fail (range != NULL);
+  g_return_if_fail (func != NULL);
+
+  if (index_set->ranges == NULL || index_set->ranges->len == 0)
+    return;
+
+  /* simple sanity check on the range */
+  if (range->length == 0)
+    return;
+
+  is_reverse = (flags & G_INDEX_SET_ENUMERATE_REVERSE) != FALSE;
+
+  start = g_index_set_get_position (index_set, range->location);
+  if (start >= index_set->ranges->len)
+    start = 0;
+
+  stop = g_index_set_get_position (index_set, g_range_get_max (range) - 1);
+
+#ifdef VERBOSE
+  g_print ("Enumerating %u ranges %s using (%u - %u), start:%u, stop:%u\n",
+           index_set->ranges->len,
+           is_reverse ? "backwards" : "forwards",
+           range->location, range->length,
+           start, stop);
+#endif
+
+  i = start;
+  while (is_reverse ? i >= stop : i < stop)
+    {
+      const GRange *r_range = g_index_set_get_range (index_set, i);
+      guint r_start, r_stop;
+      guint j = 0;
+
+      if (is_reverse)
+        {
+          r_start = g_range_get_max (r_range) - 1;
+          r_stop = r_range->location;
+        }
+      else
+        {
+          r_start = r_range->location;
+          r_stop = g_range_get_max (r_range);
+        }
+
+#ifdef VERBOSE
+      g_print ("Enumerating range %u of %u (%u - %u) %s, start:%u, stop:%u\n",
+               i + 1, index_set->ranges->len,
+               r_range->location, r_range->length,
+               is_reverse ? "backwards" : "forwards",
+               r_start, r_stop);
+#endif
+
+      j = r_start;
+      while (is_reverse ? j >= r_stop : j < r_stop)
+        {
+          gboolean should_stop = func (j, data);
+
+          if (should_stop)
+            return;
+
+          if (is_reverse)
+            {
+              if (j == 0)
+                break;
+              else
+                j -= 1;
+            }
+          else
+            j += 1;
+        }
+
+      if (is_reverse)
+        {
+          if (i == 0)
+            break;
+          else
+            i -= 1;
+        }
+      else
+        i += 1;
+    }
+}
+
+/**
+ * g_index_set_enumerate:
+ * @index_set: a #GIndexSet
+ * @flags: flags controlling the enumeration
+ * @func: (scope call): a function to be called on every element of the set
+ * @data: (closure): data to be passed to @func
+ *
+ * Calls @func on every element inside the @index_set. The function should
+ * return %FALSE to continue the enumeration, or %TRUE to stop it.
+ *
+ * The @flags can be used to control the direction of the enumeration.
+ *
+ * It is not safe to modify the @index_set during the enumeration.
+ *
+ * Since: 2.38
+ */
+void
+g_index_set_enumerate (const GIndexSet         *index_set,
+                       GIndexSetEnumerateFlags  flags,
+                       GIndexSetEnumerateFunc   func,
+                       gpointer                 data)
+{
+  GRange range;
+  guint first, last;
+
+  g_return_if_fail (index_set != NULL);
+  g_return_if_fail (func != NULL);
+
+  first = g_index_set_get_first_index (index_set);
+  if (first == G_INDEX_SET_NOT_FOUND)
+    return;
+
+  last = g_index_set_get_last_index (index_set);
+  g_range_init (&range, first, (last - first) + 1);
+
+  g_index_set_enumerate_in_range (index_set, &range, flags, func, data);
 }

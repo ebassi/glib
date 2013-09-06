@@ -138,6 +138,16 @@ index_set_contains (void)
     g_print ("Range [ 0, 11 ]\n");
   g_assert (!g_index_set_contains_range (set, &range));
 
+  g_range_init (&range, 6, 2);
+  if (g_test_verbose ())
+    g_print ("Range [ 6, 2 ]\n");
+  g_assert (g_index_set_contains_range (set, &range));
+
+  g_range_init (&range, 8, 4);
+  if (g_test_verbose ())
+    g_print ("Range [ 8, 4 ]\n");
+  g_assert (!g_index_set_contains_range (set, &range));
+
   g_index_set_unref (set);
 }
 
@@ -192,6 +202,169 @@ index_set_add (void)
   g_index_set_unref (set);
 }
 
+typedef struct {
+  GIndexSet *set;
+  GRange range;
+  gboolean is_reverse;
+  guint cur_index;
+  guint cut_off;
+  guint step;
+} EnumerateData;
+
+static gboolean
+enumerate (guint    index_,
+           gpointer data_)
+{
+  EnumerateData *data = data_;
+
+  if (g_test_verbose ())
+    g_print (" %u", index_);
+
+  g_assert (g_range_contains_location (&data->range, index_));
+
+  data->cur_index = index_;
+
+  if (data->is_reverse)
+    data->step -= 1;
+  else
+    data->step += 1;
+
+  if (index_ == data->cut_off)
+    return TRUE;
+
+  return FALSE;
+}
+
+static void
+index_set_enumerate (void)
+{
+  EnumerateData data;
+  GIndexSet *set;
+  GRange range;
+  guint loc = g_random_int_range (0, 20);
+  guint len = g_random_int_range (1, 80);
+  guint cur_index, i;
+
+  g_range_init (&range, loc, len);
+
+  set = g_index_set_init_with_range (g_index_set_alloc (), &range);
+  g_assert_cmpint (g_index_set_get_size (set), ==, range.length);
+  g_assert_cmpint (g_index_set_get_first_index (set), ==, range.location);
+  g_assert_cmpint (g_index_set_get_last_index (set), ==, g_range_get_max (&range) - 1);
+
+  if (g_test_verbose ())
+    g_print ("get_index() forward: [");
+  cur_index = g_index_set_get_first_index (set);
+  i = 0;
+  while (cur_index != G_INDEX_SET_NOT_FOUND)
+    {
+      if (g_test_verbose ())
+        g_print (" %u", cur_index);
+
+      i += 1;
+
+      cur_index =
+        g_index_set_get_index (set, G_INDEX_SET_PREDICATE_GREATER_THAN, cur_index);
+    }
+
+  if (g_test_verbose ())
+    g_print (" ]\n");
+
+  g_assert_cmpint (cur_index, ==, G_INDEX_SET_NOT_FOUND);
+  g_assert_cmpint (i, ==, g_index_set_get_size (set));
+
+  if (g_test_verbose ())
+    g_print ("get_index() backward: [");
+
+  cur_index = g_index_set_get_last_index (set);
+  i = 0;
+  while (cur_index != G_INDEX_SET_NOT_FOUND)
+    {
+      if (g_test_verbose ())
+        g_print (" %u", cur_index);
+
+      i += 1;
+
+      cur_index =
+        g_index_set_get_index (set, G_INDEX_SET_PREDICATE_LESS_THAN, cur_index);
+    }
+
+  if (g_test_verbose ())
+    g_print (" ]\n");
+
+  g_assert_cmpint (cur_index, ==, G_INDEX_SET_NOT_FOUND);
+  g_assert_cmpint (i, ==, g_index_set_get_size (set));
+
+  data.set = set;
+  data.range = range;
+  data.is_reverse = FALSE;
+  data.cur_index = 0;
+  data.cut_off = 0;
+  data.step = 0;
+
+  if (g_test_verbose ())
+    g_print ("Iterating forwards: [");
+
+  g_index_set_enumerate (set, G_INDEX_SET_ENUMERATE_NONE,
+                         enumerate,
+                         &data);
+
+  if (g_test_verbose ())
+    g_print (" ]\n");
+
+  g_assert_cmpint (data.step, ==, range.length);
+
+  data.is_reverse = TRUE;
+  data.step = g_range_get_max (&range);
+
+  if (g_test_verbose ())
+    g_print ("Iterating backwards: [");
+
+  g_index_set_enumerate (set, G_INDEX_SET_ENUMERATE_REVERSE,
+                         enumerate,
+                         &data);
+
+  if (g_test_verbose ())
+    g_print (" ]\n");
+
+  g_assert_cmpint (data.step, ==, range.location);
+
+  data.is_reverse = FALSE;
+  data.cur_index = 0;
+  data.cut_off = g_random_int_range (range.location, range.length - 1);
+  data.step = 0;
+
+  if (g_test_verbose ())
+    g_print ("Iterating forwards (cut off: %u): [", data.cut_off);
+
+  g_index_set_enumerate (set, G_INDEX_SET_ENUMERATE_NONE,
+                         enumerate,
+                         &data);
+
+  if (g_test_verbose ())
+    g_print (" ]\n");
+
+  g_assert_cmpint (data.cur_index, ==, data.cut_off);
+
+  data.is_reverse = TRUE;
+  data.cut_off = g_random_int_range (range.location, range.length - 1);
+  data.step = g_range_get_max (&range);
+
+  if (g_test_verbose ())
+    g_print ("Iterating backwards (cut off: %u): [", data.cut_off);
+
+  g_index_set_enumerate (set, G_INDEX_SET_ENUMERATE_NONE,
+                         enumerate,
+                         &data);
+
+  if (g_test_verbose ())
+    g_print (" ]\n");
+
+  g_assert_cmpint (data.cur_index, ==, data.cut_off);
+
+  g_index_set_unref (set);
+}
+
 int
 main (int   argc,
       char *argv[])
@@ -201,6 +374,7 @@ main (int   argc,
   g_test_add_func ("/index-set/init", index_set_init);
   g_test_add_func ("/index-set/contains", index_set_contains);
   g_test_add_func ("/index-set/add", index_set_add);
+  g_test_add_func ("/index-set/enumerate", index_set_enumerate);
 
   return g_test_run();
 }

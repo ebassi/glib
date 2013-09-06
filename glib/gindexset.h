@@ -1,4 +1,5 @@
-/* GIO - GLib Input, Output and Streaming Library
+/* GLIB - Library of useful routines for C programming
+ * gindexset.h: Index set
  *
  * Copyright (C) 2013  Emmanuele Bassi
  *
@@ -61,6 +62,12 @@ typedef struct _GIndexSet       GIndexSet;
  *
  * #GRange is used to describe a portion of a series, such as characters in a
  * string, or elements in an array.
+ *
+ * A #GRange consists of two elements: a location and a length. The elements
+ * that fall into the range lie between two points: the one represented by the
+ * #GRange.location and the one represented by the #GRange.location plus the
+ * #GRange.length. This means that the number of elements in the #GRange is
+ * always equal to #GRange.length.
  *
  * Since: 2.38
  */
@@ -151,6 +158,20 @@ typedef enum /*< flags >*/ {
   G_INDEX_SET_ENUMERATE_REVERSE = 1 << 0,
 } GIndexSetEnumerateFlags;
 
+/**
+ * GIndexSetEnumerateFunc:
+ * @index_: the current index
+ * @data: data passed to g_index_set_enumerate()
+ *
+ * A function called over each index inside a #GIndexSet.
+ *
+ * Returns: %TRUE if the enumeration should stop, and %FALSE otherwise
+ *
+ * Since: 2.38
+ */
+typedef gboolean (* GIndexSetEnumerateFunc) (guint    index_,
+                                             gpointer data);
+
 /* Allocation */
 GLIB_AVAILABLE_IN_2_38
 GIndexSet *     g_index_set_alloc               (void);
@@ -190,6 +211,9 @@ GIndexSet *     g_index_set_init_with_indicesv  (GIndexSet               *index_
 GLIB_AVAILABLE_IN_2_38
 GIndexSet *     g_index_set_init_with_range     (GIndexSet               *index_set,
                                                  const GRange            *range);
+GLIB_AVAILABLE_IN_2_38
+GIndexSet *     g_index_set_init_with_set       (GIndexSet               *index_set,
+                                                 const GIndexSet         *set);
 
 /* Query */
 GLIB_AVAILABLE_IN_2_38
@@ -227,14 +251,24 @@ GLIB_AVAILABLE_IN_2_38
 void            g_index_set_add_range           (GIndexSet               *index_set,
                                                  const GRange            *range);
 GLIB_AVAILABLE_IN_2_38
-void            g_index_set_make_immutable      (GIndexSet               *index_set);
-
-/* Enumeration */
-typedef gboolean (* GIndexSetEnumerateFunc) (guint    index_,
-                                             gpointer data);
+void            g_index_set_add_set             (GIndexSet               *index_set,
+                                                 const GIndexSet         *set);
+GLIB_AVAILABLE_IN_2_38
+void            g_index_set_remove_index        (GIndexSet               *index_set,
+                                                 guint                    index_);
 
 GLIB_AVAILABLE_IN_2_38
+GIndexSet *     g_index_set_make_immutable      (GIndexSet               *index_set);
+
+/* Enumeration */
+GLIB_AVAILABLE_IN_2_38
 void            g_index_set_enumerate           (const GIndexSet         *index_set,
+                                                 GIndexSetEnumerateFlags  flags,
+                                                 GIndexSetEnumerateFunc   func,
+                                                 gpointer                 data);
+GLIB_AVAILABLE_IN_2_38
+void            g_index_set_enumerate_in_range  (const GIndexSet         *index_set,
+                                                 const GRange            *range,
                                                  GIndexSetEnumerateFlags  flags,
                                                  GIndexSetEnumerateFunc   func,
                                                  gpointer                 data);

@@ -272,7 +272,7 @@
  *       memory management semantics of the getter function. If this flag
  *       is set, the getter will make a copy (or take a reference) of
  *       the value return by g_property_get().</para></listitem>
- *       <listitem><para>%G_PROPERTY_FLAGS_CONSTRUCT_ONLY, a flag that
+ *       <listitem><para>%G_PROPERTY_FLAGS_CONSTRUCT, a flag that
  *       establishes a property as being allowed to be set only during
  *       the instance construction.</para></listitem>
  *     </itemizedlist>
@@ -369,7 +369,7 @@ property_flags_to_param_flags (GPropertyFlags flags)
   if (flags & G_PROPERTY_FLAGS_DEPRECATED)
     retval |= G_PARAM_DEPRECATED;
 
-  if (flags & G_PROPERTY_FLAGS_CONSTRUCT_ONLY)
+  if (flags & G_PROPERTY_FLAGS_CONSTRUCT)
     retval |= (G_PARAM_CONSTRUCT_ONLY | G_PARAM_READABLE);
 
   return retval;
@@ -4797,7 +4797,7 @@ g_property_is_readable (GProperty *property)
   g_return_val_if_fail (G_IS_PROPERTY (property), FALSE);
 
   return (property->flags & G_PROPERTY_FLAGS_READABLE) != 0 ||
-         (property->flags & G_PROPERTY_FLAGS_CONSTRUCT_ONLY) != 0;
+         (property->flags & G_PROPERTY_FLAGS_CONSTRUCT) != 0;
 }
 
 /**
@@ -4855,10 +4855,10 @@ g_property_is_copy_get (GProperty *property)
 }
 
 /**
- * g_property_is_construct_only:
+ * g_property_is_construct:
  * @property: a #GProperty
  *
- * Checks whether the @property has the %G_PROPERTY_FLAGS_CONSTRUCT_ONLY flag
+ * Checks whether the @property has the %G_PROPERTY_FLAGS_CONSTRUCT flag
  * set.
  *
  * Return value: %TRUE if the flag is set, and %FALSE otherwise
@@ -4866,11 +4866,11 @@ g_property_is_copy_get (GProperty *property)
  * Since: 2.38
  */
 gboolean
-g_property_is_construct_only (GProperty *property)
+g_property_is_construct (GProperty *property)
 {
   g_return_val_if_fail (G_IS_PROPERTY (property), FALSE);
 
-  return (property->flags & G_PROPERTY_FLAGS_CONSTRUCT_ONLY) != 0;
+  return (property->flags & G_PROPERTY_FLAGS_CONSTRUCT) != 0;
 }
 
 static void

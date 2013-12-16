@@ -59,8 +59,8 @@ typedef struct _GProperty       GProperty;
  *   increase the reference count, of the value being retrieved
  * @G_PROPERTY_FLAGS_DEPRECATED: Whether the property is deprecated and should
  *   not be accessed in newly written code.
- * @G_PROPERTY_FLAGS_CONSTRUCT_ONLY: Whether the property is meant to be set
- *   only during construction. Implies %G_PROPERTY_FLAGS_WRITABLE.
+ * @G_PROPERTY_FLAGS_CONSTRUCT: Whether the property is meant to be set
+ *   during construction. Implies %G_PROPERTY_FLAGS_WRITABLE.
  *
  * Flags for properties declared using #GProperty and relative macros.
  *
@@ -69,16 +69,16 @@ typedef struct _GProperty       GProperty;
  * Since: 2.38
  */
 typedef enum {
-  G_PROPERTY_FLAGS_READABLE       = 1 << 0,
-  G_PROPERTY_FLAGS_WRITABLE       = 1 << 1,
-  G_PROPERTY_FLAGS_READWRITE      = (G_PROPERTY_FLAGS_READABLE | G_PROPERTY_FLAGS_WRITABLE),
+  G_PROPERTY_FLAGS_READABLE     = 1 << 0,
+  G_PROPERTY_FLAGS_WRITABLE     = 1 << 1,
+  G_PROPERTY_FLAGS_READWRITE    = (G_PROPERTY_FLAGS_READABLE | G_PROPERTY_FLAGS_WRITABLE),
 
-  G_PROPERTY_FLAGS_COPY_SET       = 1 << 2,
-  G_PROPERTY_FLAGS_COPY_GET       = 1 << 3,
-  G_PROPERTY_FLAGS_COPY           = (G_PROPERTY_FLAGS_COPY_SET | G_PROPERTY_FLAGS_COPY_GET),
+  G_PROPERTY_FLAGS_COPY_SET     = 1 << 2,
+  G_PROPERTY_FLAGS_COPY_GET     = 1 << 3,
+  G_PROPERTY_FLAGS_COPY         = (G_PROPERTY_FLAGS_COPY_SET | G_PROPERTY_FLAGS_COPY_GET),
 
-  G_PROPERTY_FLAGS_DEPRECATED     = 1 << 4,
-  G_PROPERTY_FLAGS_CONSTRUCT_ONLY = 1 << 5
+  G_PROPERTY_FLAGS_DEPRECATED   = 1 << 4,
+  G_PROPERTY_FLAGS_CONSTRUCT    = 1 << 5
 } GPropertyFlags;
 
 GLIB_AVAILABLE_IN_2_38
@@ -102,7 +102,7 @@ gboolean        g_property_is_copy_set                  (GProperty    *property)
 GLIB_AVAILABLE_IN_2_38
 gboolean        g_property_is_copy_get                  (GProperty    *property);
 GLIB_AVAILABLE_IN_2_38
-gboolean        g_property_is_construct_only            (GProperty    *property);
+gboolean        g_property_is_construct                 (GProperty    *property);
 
 GLIB_AVAILABLE_IN_2_38
 void            g_property_set_range_values             (GProperty    *property,

@@ -92,6 +92,9 @@ GLIB_AVAILABLE_IN_2_38
 GType           g_property_get_value_type               (GProperty    *property);
 
 GLIB_AVAILABLE_IN_2_38
+void            g_property_set_flags                    (GProperty    *property,
+                                                         GPropertyFlags flags);
+GLIB_AVAILABLE_IN_2_38
 gboolean        g_property_is_writable                  (GProperty    *property);
 GLIB_AVAILABLE_IN_2_38
 gboolean        g_property_is_readable                  (GProperty    *property);

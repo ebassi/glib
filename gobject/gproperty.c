@@ -2626,6 +2626,29 @@ g_property_canonicalize_name (const gchar *name)
 }
 
 /**
+ * g_property_set_flags:
+ * @property: a #GProperty
+ * @flags: the flags to set
+ *
+ * Sets the #GPropertyFlags for @property.
+ *
+ * Since: 2.38
+ */
+void
+g_property_set_flags (GProperty      *property,
+                      GPropertyFlags  flags)
+{
+  g_return_if_fail (G_IS_PROPERTY (property));
+  g_return_if_fail (G_PARAM_SPEC (property)->value_type != G_TYPE_INVALID);
+  g_return_if_fail (!property->is_installed);
+
+  if (property->flags == flags)
+    return;
+
+  property->flags |= flags;
+}
+
+/**
  * g_property_set_prerequisite:
  * @property: a #GProperty
  * @...: the prerequisite type

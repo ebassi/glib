@@ -47,20 +47,20 @@ typedef struct _GProperty       GProperty;
 
 /**
  * GPropertyFlags:
- * @G_PROPERTY_READABLE: Whether the property is readable
- * @G_PROPERTY_WRITABLE: Whether the property is writable
- * @G_PROPERTY_READWRITE: Whether the property is readable and writable
- * @G_PROPERTY_COPY_SET: Whether the property will make a copy or
+ * @G_PROPERTY_FLAGS_READABLE: Whether the property is readable
+ * @G_PROPERTY_FLAGS_WRITABLE: Whether the property is writable
+ * @G_PROPERTY_FLAGS_READWRITE: Whether the property is readable and writable
+ * @G_PROPERTY_FLAGS_COPY_SET: Whether the property will make a copy or
  *   take a reference when being set to a new value
- * @G_PROPERTY_COPY_GET: Whether the property will make a copy or
+ * @G_PROPERTY_FLAGS_COPY_GET: Whether the property will make a copy or
  *   take a reference when the value is being retrieved
- * @G_PROPERTY_COPY: Whether the property will make a copy, or take a
+ * @G_PROPERTY_FLAGS_COPY: Whether the property will make a copy, or take a
  *   reference, of the new value being set, and return a copy, or
  *   increase the reference count, of the value being retrieved
- * @G_PROPERTY_DEPRECATED: Whether the property is deprecated and should
+ * @G_PROPERTY_FLAGS_DEPRECATED: Whether the property is deprecated and should
  *   not be accessed in newly written code.
- * @G_PROPERTY_CONSTRUCT_ONLY: Whether the property is meant to be set
- *   only during construction. Implies %G_PROPERTY_WRITABLE.
+ * @G_PROPERTY_FLAGS_CONSTRUCT_ONLY: Whether the property is meant to be set
+ *   only during construction. Implies %G_PROPERTY_FLAGS_WRITABLE.
  *
  * Flags for properties declared using #GProperty and relative macros.
  *
@@ -69,16 +69,16 @@ typedef struct _GProperty       GProperty;
  * Since: 2.38
  */
 typedef enum {
-  G_PROPERTY_READABLE       = 1 << 0,
-  G_PROPERTY_WRITABLE       = 1 << 1,
-  G_PROPERTY_READWRITE      = (G_PROPERTY_READABLE | G_PROPERTY_WRITABLE),
+  G_PROPERTY_FLAGS_READABLE       = 1 << 0,
+  G_PROPERTY_FLAGS_WRITABLE       = 1 << 1,
+  G_PROPERTY_FLAGS_READWRITE      = (G_PROPERTY_FLAGS_READABLE | G_PROPERTY_FLAGS_WRITABLE),
 
-  G_PROPERTY_COPY_SET       = 1 << 2,
-  G_PROPERTY_COPY_GET       = 1 << 3,
-  G_PROPERTY_COPY           = (G_PROPERTY_COPY_SET | G_PROPERTY_COPY_GET),
+  G_PROPERTY_FLAGS_COPY_SET       = 1 << 2,
+  G_PROPERTY_FLAGS_COPY_GET       = 1 << 3,
+  G_PROPERTY_FLAGS_COPY           = (G_PROPERTY_FLAGS_COPY_SET | G_PROPERTY_FLAGS_COPY_GET),
 
-  G_PROPERTY_DEPRECATED     = 1 << 4,
-  G_PROPERTY_CONSTRUCT_ONLY = 1 << 5
+  G_PROPERTY_FLAGS_DEPRECATED     = 1 << 4,
+  G_PROPERTY_FLAGS_CONSTRUCT_ONLY = 1 << 5
 } GPropertyFlags;
 
 GLIB_AVAILABLE_IN_2_38
@@ -564,14 +564,14 @@ void            g_property_init_default        (GProperty *property,
  *                               width,
  *                               G_PRIVATE_OFFSET (GtkGadget, width),
  *                               NULL, NULL,
- *                               G_PROPERTY_READWRITE,
+ *                               G_PROPERTY_FLAGS_READWRITE,
  *                               G_PROPERTY_RANGE (0, G_MAXINT))
  * ]|
  * expands to
  * |[
  *   {
  *     GProperty *g_property =
- *       g_int_property_new ("width", G_PROPERTY_READWRITE,
+ *       g_int_property_new ("width", G_PROPERTY_FLAGS_READWRITE,
  *                           G_PRIVATE_OFFSET (GtkGadget, width),
  *                           NULL, NULL);
  *     g_property_set_range (g_property, 0, G_MAXINT);

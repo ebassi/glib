@@ -62,10 +62,10 @@
  * test_object_class_init (TestObjectClass *klass)
  * {
  *   G_DEFINE_PROPERTIES (TestObject, test_object, klass,
- *     G_DEFINE_PROPERTY (TestObject, int, x, G_PROPERTY_READWRITE)
- *     G_DEFINE_PROPERTY (TestObject, int, y, G_PROPERTY_READWRITE)
- *     G_DEFINE_PROPERTY (TestObject, int, width, G_PROPERTY_READWRITE)
- *     G_DEFINE_PROPERTY (TestObject, int, height, G_PROPERTY_READWRITE))
+ *     G_DEFINE_PROPERTY (TestObject, int, x, G_PROPERTY_FLAGS_READWRITE)
+ *     G_DEFINE_PROPERTY (TestObject, int, y, G_PROPERTY_FLAGS_READWRITE)
+ *     G_DEFINE_PROPERTY (TestObject, int, width, G_PROPERTY_FLAGS_READWRITE)
+ *     G_DEFINE_PROPERTY (TestObject, int, height, G_PROPERTY_FLAGS_READWRITE))
  * }
  * ]|
  *   <para>The main differences with the #GParamSpec creation and installation
@@ -115,11 +115,11 @@
  *     function will, by default, result in the pointer to the new value
  *     being copied in the private data structure's field; if you need to
  *     copy a boxed type, or take a reference on an object type, you will
- *     need to set the %G_PROPERTY_COPY_SET flag when creating the
+ *     need to set the %G_PROPERTY_FLAGS_COPY_SET flag when creating the
  *     property.</para>
  *
  *     <para>Calling g_property_get() will return a pointer to the private
- *     data structure's field, unless %G_PROPERTY_COPY_GET is set when
+ *     data structure's field, unless %G_PROPERTY_FLAGS_COPY_GET is set when
  *     creating the property, in which case the returned value will either
  *     be a copy of the private data structure field if it is a boxed type
  *     or the instance with its reference count increased if it is an object
@@ -136,11 +136,11 @@
  *
  * |[
  *     G_DEFINE_PROPERTY_WITH_RANGE (TestObject, int, width,
- *                                   G_PROPERTY_READWRITE,
+ *                                   G_PROPERTY_FLAGS_READWRITE,
  *                                   0,       /&ast; minimum value &ast;/
  *                                   G_MAXINT /&ast; maximum value &ast;/)
  *     G_DEFINE_PROPERTY_WITH_RANGE (TestObject, int, height,
- *                                   G_PROPERTY_READWRITE,
+ *                                   G_PROPERTY_FLAGS_READWRITE,
  *                                   0,       /&ast; minimum value &ast;/
  *                                   G_MAXINT /&ast; maximum value &ast;/)
  * ]|
@@ -190,7 +190,7 @@
  *                                 0, /&ast; no offset &ast;/
  *                                 test_object_set_complex_internal,
  *                                 test_object_get_complex_internal,
- *                                 G_PROPERTY_READWRITE,
+ *                                 G_PROPERTY_FLAGS_READWRITE,
  *                                 G_PROPERTY_PREREQUISITE (TEST_TYPE_COMPLEX))
  * ]|
  *
@@ -238,7 +238,7 @@
  *                                 G_PRIVATE_OFFSET (TestObject, width),
  *                                 test_object_set_width_internal /&ast; explicit &ast;/
  *                                 NULL,                          /&ast; implicit &ast;/
- *                                 G_PROPERTY_READWRITE,
+ *                                 G_PROPERTY_FLAGS_READWRITE,
  *                                 G_PROPERTY_RANGE (0, G_MAXINT))
  * ]|
  *
@@ -254,25 +254,25 @@
  *   <refsect3>
  *     <title>Special flags</title>
  *     <para>#GProperty has its own set of flags to be passed to its
- *     constructor functions. Alongside the usual %G_PROPERTY_READABLE
- *     and %G_PROPERTY_WRITABLE, which control the access policy for
+ *     constructor functions. Alongside the usual %G_PROPERTY_FLAGS_READABLE
+ *     and %G_PROPERTY_FLAGS_WRITABLE, which control the access policy for
  *     setter and getter functions, there are the following flags:</para>
  *
  *     <itemizedlist>
- *       <listitem><para>%G_PROPERTY_DEPRECATED, a flag for marking
+ *       <listitem><para>%G_PROPERTY_FLAGS_DEPRECATED, a flag for marking
  *       deprecated properties. If the G_ENABLE_DIAGNOSTIC environment
  *       variable is set, calling g_property_set() and g_property_get()
  *       on the deprecated properties will result in a run time warning
  *       printed on the console.</para></listitem>
- *       <listitem><para>%G_PROPERTY_COPY_SET, a flag controlling the
+ *       <listitem><para>%G_PROPERTY_FLAGS_COPY_SET, a flag controlling the
  *       memory management semantics of the setter function. If this flag
  *       is set, the setter will make a copy (or take a reference) of
  *       the value passed to g_property_set().</para></listitem>
- *       <listitem><para>%G_PROPERTY_COPY_GET, a flag controlling the
+ *       <listitem><para>%G_PROPERTY_FLAGS_COPY_GET, a flag controlling the
  *       memory management semantics of the getter function. If this flag
  *       is set, the getter will make a copy (or take a reference) of
  *       the value return by g_property_get().</para></listitem>
- *       <listitem><para>%G_PROPERTY_CONSTRUCT_ONLY, a flag that
+ *       <listitem><para>%G_PROPERTY_FLAGS_CONSTRUCT_ONLY, a flag that
  *       establishes a property as being allowed to be set only during
  *       the instance construction.</para></listitem>
  *     </itemizedlist>
@@ -360,16 +360,16 @@ property_flags_to_param_flags (GPropertyFlags flags)
 {
   GParamFlags retval = 0;
 
-  if (flags & G_PROPERTY_READABLE)
+  if (flags & G_PROPERTY_FLAGS_READABLE)
     retval |= G_PARAM_READABLE;
 
-  if (flags & G_PROPERTY_WRITABLE)
+  if (flags & G_PROPERTY_FLAGS_WRITABLE)
     retval |= G_PARAM_WRITABLE;
 
-  if (flags & G_PROPERTY_DEPRECATED)
+  if (flags & G_PROPERTY_FLAGS_DEPRECATED)
     retval |= G_PARAM_DEPRECATED;
 
-  if (flags & G_PROPERTY_CONSTRUCT_ONLY)
+  if (flags & G_PROPERTY_FLAGS_CONSTRUCT_ONLY)
     retval |= (G_PARAM_CONSTRUCT_ONLY | G_PARAM_READABLE);
 
   return retval;
@@ -1921,7 +1921,7 @@ g_string_property_set_value (GProperty   *property,
       if (g_strcmp0 (str, value) == 0)
         return FALSE;
 
-      if (property->flags & G_PROPERTY_COPY_SET)
+      if (property->flags & G_PROPERTY_FLAGS_COPY_SET)
         {
           g_free (str);
           (* (gpointer *) field_p) = g_strdup (value);
@@ -1954,7 +1954,7 @@ g_string_property_get_value (GProperty *property,
 
       field_p = G_STRUCT_MEMBER_P (gobject, property->field_offset);
 
-      if (property->flags & G_PROPERTY_COPY_GET)
+      if (property->flags & G_PROPERTY_FLAGS_COPY_GET)
         retval = g_strdup ((* (gpointer *) field_p));
       else
         retval = (* (gpointer *) field_p);
@@ -2101,7 +2101,7 @@ g_boxed_property_set_value (GProperty *property,
 
       field_p = G_STRUCT_MEMBER_P (gobject, property->field_offset);
 
-      if (property->flags & G_PROPERTY_COPY_SET)
+      if (property->flags & G_PROPERTY_FLAGS_COPY_SET)
         {
           old_value = (* (gpointer *) field_p);
 
@@ -2141,7 +2141,7 @@ g_boxed_property_get_value (GProperty *property,
 
       field_p = G_STRUCT_MEMBER_P (gobject, property->field_offset);
 
-      if (property->flags & G_PROPERTY_COPY_GET)
+      if (property->flags & G_PROPERTY_FLAGS_COPY_GET)
         value = g_boxed_copy (((GParamSpec *) property)->value_type, (* (gpointer *) field_p));
       else
         value = (* (gpointer *) field_p);
@@ -2295,7 +2295,7 @@ g_object_property_set_value (GProperty *property,
       if ((* (gpointer *) field_p) == value)
         return FALSE;
 
-      if (property->flags & G_PROPERTY_COPY_SET)
+      if (property->flags & G_PROPERTY_FLAGS_COPY_SET)
         {
           obj = (* (gpointer *) field_p);
           if (obj != NULL)
@@ -2338,7 +2338,7 @@ g_object_property_get_value (GProperty *property,
 
       obj = &G_STRUCT_MEMBER (GObject, gobject, property->field_offset);
 
-      if (property->flags & G_PROPERTY_COPY_GET)
+      if (property->flags & G_PROPERTY_FLAGS_COPY_GET)
         {
           if (obj != NULL)
             return g_object_ref (obj);
@@ -3699,7 +3699,7 @@ g_property_set_va (GProperty             *property,
   g_return_val_if_fail (property->is_installed, FALSE);
   g_return_val_if_fail (G_IS_OBJECT (gobject), FALSE);
 
-  if ((property->flags & G_PROPERTY_WRITABLE) == 0)
+  if ((property->flags & G_PROPERTY_FLAGS_WRITABLE) == 0)
     {
       g_critical ("The property '%s' of object '%s' is not writable",
                   G_PARAM_SPEC (property)->name,
@@ -3850,7 +3850,7 @@ g_property_get_va (GProperty             *property,
   g_return_val_if_fail (property->is_installed, FALSE);
   g_return_val_if_fail (G_IS_OBJECT (gobject), FALSE);
 
-  if ((property->flags & G_PROPERTY_READABLE) == 0)
+  if ((property->flags & G_PROPERTY_FLAGS_READABLE) == 0)
     {
       g_critical ("The property '%s' of object '%s' is not readable",
                   G_PARAM_SPEC (property)->name,
@@ -3955,7 +3955,7 @@ g_property_get_va (GProperty             *property,
         value = g_string_property_get_value (property, gobject);
 
         if (((flags & G_PROPERTY_COLLECT_COPY) != 0) &&
-            (property->flags & G_PROPERTY_COPY_GET) == 0)
+            (property->flags & G_PROPERTY_FLAGS_COPY_GET) == 0)
           {
             (* (gchar **) ret_p) = g_strdup (value);
           }
@@ -3971,7 +3971,7 @@ g_property_get_va (GProperty             *property,
         boxed = g_boxed_property_get_value (property, gobject);
 
         if (((flags & G_PROPERTY_COLLECT_COPY) != 0) &&
-            (property->flags & G_PROPERTY_COPY_GET) == 0)
+            (property->flags & G_PROPERTY_FLAGS_COPY_GET) == 0)
           {
             if (boxed != NULL)
               (* (gpointer *) ret_p) = g_boxed_copy (gtype, boxed);
@@ -3988,7 +3988,7 @@ g_property_get_va (GProperty             *property,
         gpointer obj = g_object_property_get_value (property, gobject);
 
         if (((flags & G_PROPERTY_COLLECT_REF) != 0) &&
-            (property->flags & G_PROPERTY_COPY_GET) == 0)
+            (property->flags & G_PROPERTY_FLAGS_COPY_GET) == 0)
           {
             if (obj != NULL)
               (* (gpointer *) ret_p) = g_object_ref (obj);
@@ -4075,7 +4075,7 @@ g_property_set_value_internal (GProperty    *property,
   gboolean res = FALSE;
   GType gtype;
 
-  if ((property->flags & G_PROPERTY_WRITABLE) == 0)
+  if ((property->flags & G_PROPERTY_FLAGS_WRITABLE) == 0)
     {
       g_critical ("The property '%s' of object '%s' is not writable",
                   G_PARAM_SPEC (property)->name,
@@ -4291,7 +4291,7 @@ g_property_get_value (GProperty *property,
   g_return_if_fail (G_IS_OBJECT (gobject));
   g_return_if_fail (value != NULL);
 
-  if ((property->flags & G_PROPERTY_READABLE) == 0)
+  if ((property->flags & G_PROPERTY_FLAGS_READABLE) == 0)
     {
       g_critical ("The property '%s' of object '%s' is not readable",
                   G_PARAM_SPEC (property)->name,
@@ -4767,7 +4767,7 @@ g_property_validate_value (GProperty *property,
  * g_property_is_writable:
  * @property: a #GProperty
  *
- * Checks whether the @property has the %G_PROPERTY_WRITABLE flag set.
+ * Checks whether the @property has the %G_PROPERTY_FLAGS_WRITABLE flag set.
  *
  * Return value: %TRUE if the flag is set, and %FALSE otherwise
  *
@@ -4778,14 +4778,14 @@ g_property_is_writable (GProperty *property)
 {
   g_return_val_if_fail (G_IS_PROPERTY (property), FALSE);
 
-  return (property->flags & G_PROPERTY_WRITABLE) != 0;
+  return (property->flags & G_PROPERTY_FLAGS_WRITABLE) != 0;
 }
 
 /**
  * g_property_is_readable:
  * @property: a #GProperty
  *
- * Checks whether the @property has the %G_PROPERTY_READABLE flag set.
+ * Checks whether the @property has the %G_PROPERTY_FLAGS_READABLE flag set.
  *
  * Return value: %TRUE if the flag is set, and %FALSE otherwise
  *
@@ -4796,15 +4796,15 @@ g_property_is_readable (GProperty *property)
 {
   g_return_val_if_fail (G_IS_PROPERTY (property), FALSE);
 
-  return (property->flags & G_PROPERTY_READABLE) != 0 ||
-         (property->flags & G_PROPERTY_CONSTRUCT_ONLY) != 0;
+  return (property->flags & G_PROPERTY_FLAGS_READABLE) != 0 ||
+         (property->flags & G_PROPERTY_FLAGS_CONSTRUCT_ONLY) != 0;
 }
 
 /**
  * g_property_is_deprecated:
  * @property: a #GProperty
  *
- * Checks whether the @property has the %G_PROPERTY_DEPRECATED flag set.
+ * Checks whether the @property has the %G_PROPERTY_FLAGS_DEPRECATED flag set.
  *
  * Return value: %TRUE if the flag is set, and %FALSE otherwise
  *
@@ -4815,14 +4815,14 @@ g_property_is_deprecated (GProperty *property)
 {
   g_return_val_if_fail (G_IS_PROPERTY (property), FALSE);
 
-  return (property->flags & G_PROPERTY_DEPRECATED) != 0;
+  return (property->flags & G_PROPERTY_FLAGS_DEPRECATED) != 0;
 }
 
 /**
  * g_property_is_copy_set:
  * @property: a #GProperty
  *
- * Checks whether the @property has the %G_PROPERTY_COPY_SET flag set.
+ * Checks whether the @property has the %G_PROPERTY_FLAGS_COPY_SET flag set.
  *
  * Return value: %TRUE if the flag is set, and %FALSE otherwise
  *
@@ -4833,14 +4833,14 @@ g_property_is_copy_set (GProperty *property)
 {
   g_return_val_if_fail (G_IS_PROPERTY (property), FALSE);
 
-  return (property->flags & G_PROPERTY_COPY_SET) !=  0;
+  return (property->flags & G_PROPERTY_FLAGS_COPY_SET) !=  0;
 }
 
 /**
  * g_property_is_copy_get:
  * @property: a #GProperty
  *
- * Checks whether the @property has the %G_PROPERTY_COPY_GET flag set.
+ * Checks whether the @property has the %G_PROPERTY_FLAGS_COPY_GET flag set.
  *
  * Return value: %TRUE if the flag is set, and %FALSE otherwise
  *
@@ -4851,14 +4851,14 @@ g_property_is_copy_get (GProperty *property)
 {
   g_return_val_if_fail (G_IS_PROPERTY (property), FALSE);
 
-  return (property->flags & G_PROPERTY_COPY_GET) !=  0;
+  return (property->flags & G_PROPERTY_FLAGS_COPY_GET) !=  0;
 }
 
 /**
  * g_property_is_construct_only:
  * @property: a #GProperty
  *
- * Checks whether the @property has the %G_PROPERTY_CONSTRUCT_ONLY flag
+ * Checks whether the @property has the %G_PROPERTY_FLAGS_CONSTRUCT_ONLY flag
  * set.
  *
  * Return value: %TRUE if the flag is set, and %FALSE otherwise
@@ -4870,7 +4870,7 @@ g_property_is_construct_only (GProperty *property)
 {
   g_return_val_if_fail (G_IS_PROPERTY (property), FALSE);
 
-  return (property->flags & G_PROPERTY_CONSTRUCT_ONLY) != 0;
+  return (property->flags & G_PROPERTY_FLAGS_CONSTRUCT_ONLY) != 0;
 }
 
 static void

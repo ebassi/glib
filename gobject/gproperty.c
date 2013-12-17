@@ -371,7 +371,12 @@ property_flags_to_param_flags (GPropertyFlags flags)
     retval |= G_PARAM_DEPRECATED;
 
   if (flags & G_PROPERTY_FLAGS_CONSTRUCT)
-    retval |= (G_PARAM_CONSTRUCT_ONLY | G_PARAM_READABLE);
+    {
+      if (retval & G_PARAM_WRITABLE)
+        retval |= G_PARAM_CONSTRUCT;
+      else
+        retval |= G_PARAM_CONSTRUCT_ONLY;
+    }
 
   return retval;
 }

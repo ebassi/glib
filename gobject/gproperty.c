@@ -2851,6 +2851,8 @@ void
 g_property_set_flags (GProperty      *property,
                       GPropertyFlags  flags)
 {
+  GParamFlags pspec_flags;
+
   g_return_if_fail (G_IS_PROPERTY (property));
   g_return_if_fail (G_PARAM_SPEC (property)->value_type != G_TYPE_INVALID);
   g_return_if_fail (!property->is_installed);
@@ -2859,6 +2861,13 @@ g_property_set_flags (GProperty      *property,
     return;
 
   property->flags |= flags;
+  pspec_flags = property_flags_to_param_flags (property->flags);
+
+  /* keep in sync with gparam.c */
+#define G_PARAM_USER_MASK (~0 << G_PARAM_USER_SHIFT)
+  pspec_flags = (pspec_flags & G_PARAM_USER_MASK) | (pspec_flags & G_PARAM_MASK);
+  ((GParamSpec *) property)->flags = pspec_flags;
+#undef G_PARAM_USER_MASK
 }
 
 /**

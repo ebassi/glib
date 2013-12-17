@@ -639,23 +639,6 @@ g_##g_t##_property_get_value (GProperty *property, \
 }
 
 /**
- * g_boolean_property_new:
- * @name: canonical name of the property
- * @flags: flags for the property
- * @offset: the offset in the private structure of the field
- *   that stores the property, or -1
- * @setter: (allow-none): the setter function for the property
- * @getter: (allow-none): the getter function for the property
- *
- * Creates a new #GProperty mapping to a boolean value.
- *
- * Return value: the newly created #GProperty
- *
- * Since: 2.38
- */
-DEFINE_PROPERTY_INTEGER (Boolean, boolean, gboolean, G_TYPE_BOOLEAN, FALSE, TRUE)
-
-/**
  * g_int_property_new:
  * @name: canonical name of the property
  * @flags: flags for the property
@@ -888,6 +871,181 @@ DEFINE_PROPERTY_INTEGER (UInt64, uint64, guint64, G_TYPE_UINT64, 0, G_MAXUINT64)
  * Since: 2.38
  */
 DEFINE_PROPERTY_INTEGER (ULong, ulong, gulong, G_TYPE_ULONG, 0, G_MAXULONG)
+
+/*
+ * gboolean
+ */
+
+/* forward declaration for -Wmissing-prototypes */
+GType _g_boolean_property_get_type (void);
+
+typedef struct {
+  GProperty parent;
+
+  GPropertyBooleanSet setter;
+  GPropertyBooleanGet getter;
+} GBooleanProperty;
+
+static gboolean
+property_boolean_validate (GParamSpec *pspec,
+                           GValue     *value)
+{
+  gint oval = value->data[0].v_int;
+
+  value->data[0].v_int = value->data[0].v_int != FALSE;
+
+  return value->data[0].v_int != oval;
+}
+
+static gint
+property_boolean_values_cmp (GParamSpec   *pspec,
+                             const GValue *value1,
+                             const GValue *value2)
+{
+  if (value1->data[0].v_int < value2->data[0].v_int)
+    return -1;
+  else
+    return value1->data[0].v_int > value2->data[0].v_int;
+}
+
+static void
+property_boolean_class_init (GParamSpecClass *klass)
+{
+  klass->value_type = G_TYPE_BOOLEAN;
+
+  klass->value_validate = property_boolean_validate;
+  klass->values_cmp = property_boolean_values_cmp;
+}
+
+static void
+property_boolean_init (GParamSpec *pspec)
+{
+}
+
+GType
+_g_boolean_property_get_type (void)
+{
+  static volatile gsize pspec_type_id__volatile = 0;
+
+  if (g_once_init_enter (&pspec_type_id__volatile))
+    {
+      const GTypeInfo info = {
+        sizeof (GParamSpecClass),
+        NULL, NULL,
+        (GClassInitFunc) property_boolean_class_init,
+        NULL, NULL,
+        sizeof (GBooleanProperty),
+        0,
+        (GInstanceInitFunc) property_boolean_init,
+      };
+
+      GType pspec_type_id =
+        g_type_register_static (G_TYPE_PROPERTY,
+                                g_intern_static_string ("GBooleanProperty"),
+                                &info, 0);
+
+      g_once_init_leave (&pspec_type_id__volatile, pspec_type_id);
+    }
+
+  return pspec_type_id__volatile;
+}
+
+
+/**
+ * g_boolean_property_new:
+ * @name: canonical name of the property
+ * @flags: flags for the property
+ * @offset: the offset in the private structure of the field
+ *   that stores the property, or -1
+ * @setter: (allow-none): the setter function for the property
+ * @getter: (allow-none): the getter function for the property
+ *
+ * Creates a new #GProperty mapping to a boolean value.
+ *
+ * Return value: the newly created #GProperty
+ *
+ * Since: 2.38
+ */
+GParamSpec *
+g_boolean_property_new (const gchar         *name,
+                        GPropertyFlags       flags,
+                        gssize               offset,
+                        GPropertyBooleanSet  setter,
+                        GPropertyBooleanGet  getter)
+{
+  GProperty *prop;
+  GBooleanProperty *internal;
+
+  prop = g_property_create (_g_boolean_property_get_type (),
+                            G_TYPE_BOOLEAN,
+                            name,
+                            flags,
+                            offset,
+                            sizeof (gboolean));
+
+  internal = (GBooleanProperty *) prop;
+  internal->setter = setter;
+  internal->getter = getter;
+
+  return G_PARAM_SPEC (prop);
+}
+
+static inline gboolean
+g_boolean_property_set_value (GProperty *property,
+                              gpointer   gobject,
+                              gboolean   value)
+{
+  gboolean retval = FALSE;
+
+  value = !!value;
+
+  if (((GBooleanProperty *) property)->setter != NULL)
+    {
+      ((GBooleanProperty *) property)->setter (gobject, value);
+
+      retval = FALSE;
+    }
+  else if (property->field_offset != 0)
+    {
+      gpointer field_p;
+
+      field_p = G_STRUCT_MEMBER_P (gobject, property->field_offset);
+
+      if ((* (gboolean *) field_p) != value)
+        {
+          (* (gboolean *) field_p) = value;
+
+          retval = TRUE;
+        }
+    }
+  else
+    g_critical (G_STRLOC ": No setter function or field offset specified "
+                "for property '%s'",
+                G_PARAM_SPEC (property)->name);
+
+  return retval;
+}
+
+static inline gboolean
+g_boolean_property_get_value (GProperty *property,
+                              gpointer   gobject)
+{
+  if (((GBooleanProperty *) property)->getter != NULL)
+    {
+      return ((GBooleanProperty *) property)->getter (gobject);
+    }
+  else if (property->field_offset != 0)
+    {
+      return G_STRUCT_MEMBER (gboolean, gobject, property->field_offset);
+    }
+  else
+    {
+      g_critical (G_STRLOC ": No getter function or field offset specified "
+                  "for property '%s'",
+                  G_PARAM_SPEC (property)->name);
+      return FALSE;
+    }
+}
 
 /*
  * GEnum
@@ -2797,12 +2955,6 @@ g_property_set_range_values (GProperty    *property,
 
   switch (gtype)
     {
-    case G_TYPE_BOOLEAN:
-      g_boolean_property_set_range (property,
-                                    g_value_get_boolean (min_value),
-                                    g_value_get_boolean (max_value));
-      break;
-
     case G_TYPE_INT:
       {
         gint min_v = g_value_get_int (min_value);
@@ -2937,17 +3089,6 @@ g_property_get_range_values (GProperty *property,
 
   switch (gtype)
     {
-    case G_TYPE_BOOLEAN:
-      {
-        gboolean min_v, max_v;
-
-        g_boolean_property_get_range (property, &min_v, &max_v);
-        g_value_set_boolean (min_value, min_v);
-        g_value_set_boolean (max_value, max_v);
-      }
-      retval = TRUE;
-      break;
-
     case G_TYPE_INT:
       {
         gint min_v, max_v;
@@ -3107,15 +3248,6 @@ g_property_set_range (GProperty *property,
 
   switch (G_TYPE_FUNDAMENTAL (gtype))
     {
-    case G_TYPE_BOOLEAN:
-      {
-        gboolean min_v = va_arg (args, gboolean);
-        gboolean max_v = va_arg (args, gboolean);
-
-        g_boolean_property_set_range (property, min_v, max_v);
-      }
-      break;
-
     case G_TYPE_INT:
       {
         gint min_v = va_arg (args, gint);
@@ -3262,11 +3394,6 @@ g_property_get_range (GProperty *property,
 
   switch (G_TYPE_FUNDAMENTAL (gtype))
     {
-    case G_TYPE_BOOLEAN:
-      g_boolean_property_get_range (property, (gboolean *) min_p, (gboolean *) max_p);
-      retval = TRUE;
-      break;
-
     case G_TYPE_INT:
       switch (property->type_size)
         {
@@ -4590,10 +4717,6 @@ g_property_validate (GProperty *property,
 
   switch (G_TYPE_FUNDAMENTAL (gtype))
     {
-    case G_TYPE_BOOLEAN:
-      retval = g_boolean_property_validate (property, va_arg (args, gboolean));
-      break;
-
     case G_TYPE_INT:
       switch (property->type_size)
         {
@@ -4680,6 +4803,12 @@ g_property_validate (GProperty *property,
       retval = g_object_property_validate (property, va_arg (args, gpointer));
       break;
 
+    /* pointers and booleans are always valid */
+    case G_TYPE_BOOLEAN:
+    case G_TYPE_POINTER:
+      retval = TRUE;
+      break;
+
     default:
       g_critical (G_STRLOC ": Invalid type %s", g_type_name (gtype));
       break;
@@ -4732,10 +4861,6 @@ g_property_validate_value (GProperty *property,
 
   switch (G_TYPE_FUNDAMENTAL (gtype))
     {
-    case G_TYPE_BOOLEAN:
-      retval = g_boolean_property_validate (property, g_value_get_boolean (&copy));
-      break;
-
     case G_TYPE_INT:
       {
         gint val = g_value_get_int (&copy);
@@ -4828,6 +4953,11 @@ g_property_validate_value (GProperty *property,
 
     case G_TYPE_OBJECT:
       retval = g_object_property_validate (property, g_value_get_object (&copy));
+      break;
+
+    case G_TYPE_BOOLEAN:
+    case G_TYPE_POINTER:
+      retval = TRUE;
       break;
 
     default:

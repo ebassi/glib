@@ -1108,8 +1108,29 @@ g_object_do_get_property (GObject     *object,
 }
 
 static void
+g_object_dispose_properties (GObject *object)
+{
+  GParamSpec **pspecs;
+  guint n, i;
+
+  pspecs = g_param_spec_pool_list (pspec_pool,
+				   G_OBJECT_TYPE (object),
+				   &n);
+  for (i = 0; i < n; i++)
+    {
+      if (!G_IS_PROPERTY (pspecs[i]))
+        continue;
+
+      g_property_dispose (G_PROPERTY (pspecs[i]), object);
+    }
+
+  g_free (pspecs);
+}
+
+static void
 g_object_real_dispose (GObject *object)
 {
+  g_object_dispose_properties (object);
   g_signal_handlers_destroy (object);
   g_datalist_id_set_data (&object->qdata, quark_closure_array, NULL);
   g_datalist_id_set_data (&object->qdata, quark_weak_refs, NULL);

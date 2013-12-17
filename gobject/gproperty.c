@@ -332,8 +332,9 @@ struct _GProperty
 {
   GParamSpec parent_instance;
 
-  guint flags        : 15;
-  guint is_installed : 1;
+  guint flags         : 14;
+  guint is_installed  : 1;
+  guint is_auto_clean : 1;
 
   guint16 type_size;
   gint field_offset;
@@ -2556,6 +2557,60 @@ g_property_set_installed (GProperty *property,
   g_property_ensure_prop_id (property);
 
   property->is_installed = TRUE;
+}
+
+void
+g_property_dispose (GProperty *property,
+                    gpointer   gobject)
+{
+  GType gtype = G_PARAM_SPEC (property)->value_type;
+  gpointer field_p;
+
+  /* we only do auto-cleanup if we have struct offsets */
+  if (property->field_offset == 0)
+    return;
+
+  field_p = G_STRUCT_MEMBER_P (gobject, property->field_offset);
+
+  switch (G_TYPE_FUNDAMENTAL (gtype))
+    {
+    case G_TYPE_STRING:
+      if (property->flags & G_PROPERTY_FLAGS_COPY_SET)
+        g_clear_pointer ((gpointer *) field_p, g_free);
+      else
+        (* (gpointer *) field_p) = NULL;
+      break;
+
+    case G_TYPE_BOXED:
+      if (property->flags & G_PROPERTY_FLAGS_COPY_SET)
+        {
+          gpointer old_value = (* (gpointer *) field_p);
+
+          (* (gpointer *) field_p) = NULL;
+
+          if (old_value != NULL)
+            g_boxed_free (gtype, old_value);
+        }
+      else
+        {
+          (* (gpointer *) field_p) = NULL;
+        }
+      break;
+
+    case G_TYPE_OBJECT:
+      if (property->flags & G_PROPERTY_FLAGS_COPY_SET)
+        g_clear_pointer ((gpointer *) field_p, g_object_unref);
+      else
+        (* (gpointer *) field_p) = NULL;
+      break;
+
+    case G_TYPE_POINTER:
+      (* (gpointer *) field_p) = NULL;
+      break;
+
+    default:
+      break;
+    }
 }
 
 static gboolean

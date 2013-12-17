@@ -433,6 +433,8 @@ void            g_property_set_installed       (GProperty *property,
                                                 GType      class_gtype);
 void            g_property_init_default        (GProperty *property,
                                                 gpointer   object);
+void            g_property_dispose             (GProperty *property,
+                                                gpointer   gobject);
 
 
 G_END_DECLS

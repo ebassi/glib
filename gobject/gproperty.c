@@ -273,8 +273,12 @@
  *       is set, the getter will make a copy (or take a reference) of
  *       the value return by g_property_get().</para></listitem>
  *       <listitem><para>%G_PROPERTY_FLAGS_CONSTRUCT, a flag that
- *       establishes a property as being allowed to be set only during
+ *       establishes a property as being allowed to be set during
  *       the instance construction.</para></listitem>
+ *       <listitem><para>%G_PROPERTY_FLAGS_REQUIRED, a flag that
+ *       establishes a property as being required during construction
+ *       time; it can only be applied alongside %G_PROPERTY_FLAGS_CONSTRUCT
+ *       and it is ignored otherwise.</para></listitem>
  *     </itemizedlist>
  *   </refsect3>
  *
@@ -5093,6 +5097,26 @@ g_property_is_construct (GProperty *property)
   g_return_val_if_fail (G_IS_PROPERTY (property), FALSE);
 
   return (property->flags & G_PROPERTY_FLAGS_CONSTRUCT) != 0;
+}
+
+/**
+ * g_property_is_required:
+ * @property: a #GProperty
+ *
+ * Checks whether the @property has the %G_PROPERTY_FLAGS_REQUIRED flag
+ * set.
+ *
+ * Return value: %TRUE if the flag is set, and %FALSE otherwise
+ *
+ * Since: 2.38
+ */
+gboolean
+g_property_is_required (GProperty *property)
+{
+  g_return_val_if_fail (G_IS_PROPERTY (property), FALSE);
+
+  return (property->flags & G_PROPERTY_FLAGS_CONSTRUCT) != 0 &&
+         (property->flags & G_PROPERTY_FLAGS_REQUIRED) != 0;
 }
 
 static void

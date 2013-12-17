@@ -60,7 +60,10 @@ typedef struct _GProperty       GProperty;
  * @G_PROPERTY_FLAGS_DEPRECATED: Whether the property is deprecated and should
  *   not be accessed in newly written code.
  * @G_PROPERTY_FLAGS_CONSTRUCT: Whether the property is meant to be set
- *   during construction. Implies %G_PROPERTY_FLAGS_WRITABLE.
+ *   during construction. If %G_PROPERTY_FLAGS_WRITABLE is not set, the
+ *   property can only be set during construction.
+ * @G_PROPERTY_FLAGS_REQUIRED: Whether the property is required during
+ *   construction.
  *
  * Flags for properties declared using #GProperty and relative macros.
  *
@@ -78,7 +81,9 @@ typedef enum {
   G_PROPERTY_FLAGS_COPY         = (G_PROPERTY_FLAGS_COPY_SET | G_PROPERTY_FLAGS_COPY_GET),
 
   G_PROPERTY_FLAGS_DEPRECATED   = 1 << 4,
-  G_PROPERTY_FLAGS_CONSTRUCT    = 1 << 5
+
+  G_PROPERTY_FLAGS_CONSTRUCT    = 1 << 5,
+  G_PROPERTY_FLAGS_REQUIRED     = 1 << 6
 } GPropertyFlags;
 
 GLIB_AVAILABLE_IN_2_38
@@ -106,6 +111,8 @@ GLIB_AVAILABLE_IN_2_38
 gboolean        g_property_is_copy_get                  (GProperty    *property);
 GLIB_AVAILABLE_IN_2_38
 gboolean        g_property_is_construct                 (GProperty    *property);
+GLIB_AVAILABLE_IN_2_38
+gboolean        g_property_is_required                  (GProperty    *property);
 
 GLIB_AVAILABLE_IN_2_38
 void            g_property_set_range_values             (GProperty    *property,

@@ -15,4 +15,4 @@ type
 valuearray
 private
 marshalers.[ch]
-property
+gproperty

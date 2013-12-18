@@ -22,7 +22,7 @@ test_programs = \
 	private				\
 	closure				\
 	object				\
-	property			\
+	gproperty			\
 	$(NULL)
 
 # -----------------------------------------------------------------------------

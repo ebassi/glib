@@ -2052,6 +2052,10 @@ static inline gboolean
 g_string_property_validate (GProperty   *property,
                             const gchar *value)
 {
+  if (!(property->flags & G_PROPERTY_FLAGS_NULLABLE) &&
+      value == NULL)
+    return FALSE;
+
   return TRUE;
 }
 
@@ -2065,7 +2069,7 @@ g_string_property_set_value (GProperty   *property,
   if (!g_string_property_validate (property, value))
     {
       g_warning ("The value '%s' for the property '%s' of object '%s' is not valid",
-                 value,
+                 value != NULL ? value : "(null)",
                  G_PARAM_SPEC (property)->name,
                  G_OBJECT_TYPE_NAME (gobject));
       return FALSE;
@@ -2238,6 +2242,9 @@ static inline gboolean
 g_boxed_property_validate (GProperty     *property,
                            gconstpointer  value)
 {
+  if (!(property->flags & G_PROPERTY_FLAGS_NULLABLE) && value == NULL)
+    return FALSE;
+
   return TRUE;
 }
 
@@ -2425,7 +2432,12 @@ g_object_property_validate (GProperty     *property,
                             gconstpointer  value)
 {
   if (value == NULL)
-    return FALSE;
+    {
+      if (property->flags & G_PROPERTY_FLAGS_NULLABLE)
+        return TRUE;
+
+      return FALSE;
+    }
 
   return g_type_is_a (G_OBJECT_TYPE (value), G_PARAM_SPEC (property)->value_type);
 }
@@ -2621,6 +2633,9 @@ static inline gboolean
 g_pointer_property_validate (GProperty     *property,
                              gconstpointer  value)
 {
+  if (!(property->flags & G_PROPERTY_FLAGS_NULLABLE) && value == NULL)
+    return FALSE;
+
   return TRUE;
 }
 
@@ -5117,6 +5132,25 @@ g_property_is_required (GProperty *property)
 
   return (property->flags & G_PROPERTY_FLAGS_CONSTRUCT) != 0 &&
          (property->flags & G_PROPERTY_FLAGS_REQUIRED) != 0;
+}
+
+/**
+ * g_property_is_nullable:
+ * @property: a #GProperty
+ *
+ * Checks whether the @property has the %G_PROPERTY_FLAGS_NULLABLE flag
+ * set.
+ *
+ * Return value: %TRUE if the flag is set, and %FALSE otherwise
+ *
+ * Since: 2.38
+ */
+gboolean
+g_property_is_nullable (GProperty *property)
+{
+  g_return_val_if_fail (G_IS_PROPERTY (property), FALSE);
+
+  return (property->flags & G_PROPERTY_FLAGS_NULLABLE) != 0;
 }
 
 static void

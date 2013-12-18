@@ -64,6 +64,8 @@ typedef struct _GProperty       GProperty;
  *   property can only be set during construction.
  * @G_PROPERTY_FLAGS_REQUIRED: Whether the property is required during
  *   construction.
+ * @G_PROPERTY_FLAGS_NULLABLE: Whether the property can accept %NULL
+ *   values when being set.
  *
  * Flags for properties declared using #GProperty and relative macros.
  *
@@ -83,7 +85,9 @@ typedef enum {
   G_PROPERTY_FLAGS_DEPRECATED   = 1 << 4,
 
   G_PROPERTY_FLAGS_CONSTRUCT    = 1 << 5,
-  G_PROPERTY_FLAGS_REQUIRED     = 1 << 6
+  G_PROPERTY_FLAGS_REQUIRED     = 1 << 6,
+
+  G_PROPERTY_FLAGS_NULLABLE     = 1 << 7
 } GPropertyFlags;
 
 GLIB_AVAILABLE_IN_2_38
@@ -113,6 +117,8 @@ GLIB_AVAILABLE_IN_2_38
 gboolean        g_property_is_construct                 (GProperty    *property);
 GLIB_AVAILABLE_IN_2_38
 gboolean        g_property_is_required                  (GProperty    *property);
+GLIB_AVAILABLE_IN_2_38
+gboolean        g_property_is_nullable                  (GProperty    *property);
 
 GLIB_AVAILABLE_IN_2_38
 void            g_property_set_range_values             (GProperty    *property,

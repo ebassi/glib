@@ -3908,6 +3908,23 @@ g_property_override_default (GProperty *property,
   va_end (var_args);
 }
 
+static inline gboolean
+is_property_deprecated (GProperty *property)
+{
+  static const char *diagnostic_enabled = NULL;
+
+  if (G_UNLIKELY (diagnostic_enabled == NULL))
+    {
+      diagnostic_enabled = g_getenv ("G_ENABLE_DIAGNOSTIC");
+
+      if (diagnostic_enabled == NULL || diagnostic_enabled[0] == '\0')
+        diagnostic_enabled = "0";
+    }
+
+  return diagnostic_enabled[0] == '1' &&
+         (property->flags & G_PROPERTY_FLAGS_DEPRECATED) != 0;
+}
+
 /**
  * g_property_set_va:
  * @property: a #GProperty
@@ -3939,10 +3956,20 @@ g_property_set_va (GProperty             *property,
 
   if ((property->flags & G_PROPERTY_FLAGS_WRITABLE) == 0)
     {
-      g_critical ("The property '%s' of object '%s' is not writable",
+      g_critical ("The property '%s:%s' of type '%s' is not writable",
+                  G_OBJECT_TYPE_NAME (gobject),
                   G_PARAM_SPEC (property)->name,
-                  G_OBJECT_TYPE_NAME (gobject));
+                  g_type_name (G_PARAM_SPEC_VALUE_TYPE (property)));
       return FALSE;
+    }
+
+  if (is_property_deprecated (property))
+    {
+      g_critical ("The property '%s:%s' of type '%s' is deprecated and "
+                  "should not be used in newly written code.",
+                  G_OBJECT_TYPE_NAME (gobject),
+                  G_PARAM_SPEC (property)->name,
+                  g_type_name (G_PARAM_SPEC_VALUE_TYPE (property)));
     }
 
   g_object_ref (gobject);
@@ -4090,10 +4117,20 @@ g_property_get_va (GProperty             *property,
 
   if ((property->flags & G_PROPERTY_FLAGS_READABLE) == 0)
     {
-      g_critical ("The property '%s' of object '%s' is not readable",
+      g_critical ("The property '%s:%s' of type '%s' is not readable",
+                  G_OBJECT_TYPE_NAME (gobject),
                   G_PARAM_SPEC (property)->name,
-                  G_OBJECT_TYPE_NAME (gobject));
+                  g_type_name (G_PARAM_SPEC_VALUE_TYPE (property)));
       return FALSE;
+    }
+
+  if (is_property_deprecated (property))
+    {
+      g_critical ("The property '%s:%s' of type '%s' is deprecated and "
+                  "should not be used in newly written code.",
+                  G_OBJECT_TYPE_NAME (gobject),
+                  G_PARAM_SPEC (property)->name,
+                  g_type_name (G_PARAM_SPEC_VALUE_TYPE (property)));
     }
 
   gtype = G_PARAM_SPEC (property)->value_type;
@@ -4315,10 +4352,20 @@ g_property_set_value_internal (GProperty    *property,
 
   if ((property->flags & G_PROPERTY_FLAGS_WRITABLE) == 0)
     {
-      g_critical ("The property '%s' of object '%s' is not writable",
+      g_critical ("The property '%s:%s' of type '%s' is not writable",
+                  G_OBJECT_TYPE_NAME (gobject),
                   G_PARAM_SPEC (property)->name,
-                  G_OBJECT_TYPE_NAME (gobject));
+                  g_type_name (G_PARAM_SPEC_VALUE_TYPE (property)));
       return FALSE;
+    }
+
+  if (is_property_deprecated (property))
+    {
+      g_critical ("The property '%s:%s' of type '%s' is deprecated and "
+                  "should not be used in newly written code.",
+                  G_OBJECT_TYPE_NAME (gobject),
+                  G_PARAM_SPEC (property)->name,
+                  g_type_name (G_PARAM_SPEC_VALUE_TYPE (property)));
     }
 
   g_object_ref (gobject);
@@ -4531,10 +4578,20 @@ g_property_get_value (GProperty *property,
 
   if ((property->flags & G_PROPERTY_FLAGS_READABLE) == 0)
     {
-      g_critical ("The property '%s' of object '%s' is not readable",
+      g_critical ("The property '%s:%s' of type '%s' is not readable",
+                  G_OBJECT_TYPE_NAME (gobject),
                   G_PARAM_SPEC (property)->name,
-                  G_OBJECT_TYPE_NAME (gobject));
+                  g_type_name (G_PARAM_SPEC_VALUE_TYPE (property)));
       return;
+    }
+
+  if (is_property_deprecated (property))
+    {
+      g_critical ("The property '%s:%s' of type '%s' is deprecated and "
+                  "should not be used in newly written code.",
+                  G_OBJECT_TYPE_NAME (gobject),
+                  G_PARAM_SPEC (property)->name,
+                  g_type_name (G_PARAM_SPEC_VALUE_TYPE (property)));
     }
 
   gtype = G_PARAM_SPEC (property)->value_type;

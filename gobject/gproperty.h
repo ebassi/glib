@@ -49,23 +49,25 @@ typedef struct _GProperty       GProperty;
  * GPropertyFlags:
  * @G_PROPERTY_FLAGS_READABLE: Whether the property is readable
  * @G_PROPERTY_FLAGS_WRITABLE: Whether the property is writable
- * @G_PROPERTY_FLAGS_READWRITE: Whether the property is readable and writable
+ * @G_PROPERTY_FLAGS_READWRITE: Whether the property is both readable and writable
  * @G_PROPERTY_FLAGS_COPY_SET: Whether the property will make a copy or
- *   take a reference when being set to a new value
+ *   take a reference when being set to a new value; this flag is only
+ *   used by pointer types
  * @G_PROPERTY_FLAGS_COPY_GET: Whether the property will make a copy or
- *   take a reference when the value is being retrieved
+ *   take a reference when the value is being retrieved; this flag is only
+ *   used by pointer types
  * @G_PROPERTY_FLAGS_COPY: Whether the property will make a copy, or take a
  *   reference, of the new value being set, and return a copy, or
  *   increase the reference count, of the value being retrieved
  * @G_PROPERTY_FLAGS_DEPRECATED: Whether the property is deprecated and should
- *   not be accessed in newly written code.
+ *   not be accessed in newly written code
  * @G_PROPERTY_FLAGS_CONSTRUCT: Whether the property is meant to be set
  *   during construction. If %G_PROPERTY_FLAGS_WRITABLE is not set, the
- *   property can only be set during construction.
+ *   property can only be set during construction
  * @G_PROPERTY_FLAGS_REQUIRED: Whether the property is required during
- *   construction.
+ *   construction
  * @G_PROPERTY_FLAGS_NULLABLE: Whether the property can accept %NULL
- *   values when being set.
+ *   values when being set; this flag is only used by pointer types
  *
  * Flags for properties declared using #GProperty and relative macros.
  *

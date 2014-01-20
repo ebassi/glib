@@ -2742,8 +2742,9 @@ g_property_set_installed (GProperty *property,
 }
 
 void
-g_property_dispose (GProperty *property,
-                    gpointer   gobject)
+g_property_unset (GProperty *property,
+                  gpointer   gobject,
+                  gboolean   clear)
 {
   GType gtype = G_PARAM_SPEC (property)->value_type;
   gpointer field_p;
@@ -2757,10 +2758,20 @@ g_property_dispose (GProperty *property,
   switch (G_TYPE_FUNDAMENTAL (gtype))
     {
     case G_TYPE_STRING:
-      if (property->flags & G_PROPERTY_FLAGS_COPY_SET)
-        g_clear_pointer ((gpointer *) field_p, g_free);
+      if (clear)
+        {
+          if (property->flags & G_PROPERTY_FLAGS_COPY_SET)
+            g_clear_pointer ((gpointer *) field_p, g_free);
+          else
+            (* (gpointer *) field_p) = NULL;
+        }
       else
-        (* (gpointer *) field_p) = NULL;
+        {
+          gpointer old_value = (* (gpointer *) field_p);
+
+          if (property->flags & G_PROPERTY_FLAGS_COPY_SET)
+            g_free (old_value);
+        }
       break;
 
     case G_TYPE_BOXED:
@@ -2768,26 +2779,34 @@ g_property_dispose (GProperty *property,
         {
           gpointer old_value = (* (gpointer *) field_p);
 
-          (* (gpointer *) field_p) = NULL;
+          if (clear)
+            (* (gpointer *) field_p) = NULL;
 
           if (old_value != NULL)
             g_boxed_free (gtype, old_value);
         }
       else
         {
-          (* (gpointer *) field_p) = NULL;
+          if (clear)
+            (* (gpointer *) field_p) = NULL;
         }
       break;
 
     case G_TYPE_OBJECT:
-      if (property->flags & G_PROPERTY_FLAGS_COPY_SET)
-        g_clear_pointer ((gpointer *) field_p, g_object_unref);
+       if (property->flags & G_PROPERTY_FLAGS_COPY_SET)
+         {
+           if (clear)
+             g_clear_object ((gpointer *) field_p);
+          else
+             g_free ((* (gpointer *) field_p));
+        }
       else
         (* (gpointer *) field_p) = NULL;
       break;
 
     case G_TYPE_POINTER:
-      (* (gpointer *) field_p) = NULL;
+      if (clear)
+        (* (gpointer *) field_p) = NULL;
       break;
 
     default:

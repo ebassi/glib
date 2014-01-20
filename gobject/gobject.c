@@ -535,6 +535,8 @@ g_object_class_install_property (GObjectClass *class,
 				 guint	       property_id,
 				 GParamSpec   *pspec)
 {
+  gboolean is_gproperty = FALSE;
+
   g_return_if_fail (G_IS_OBJECT_CLASS (class));
   g_return_if_fail (G_IS_PARAM_SPEC (pspec));
 
@@ -546,13 +548,18 @@ g_object_class_install_property (GObjectClass *class,
 
   class->flags |= CLASS_HAS_PROPS_FLAG;
 
+  is_gproperty = G_IS_PROPERTY (pspec);
+
   g_return_if_fail (pspec->flags & (G_PARAM_READABLE | G_PARAM_WRITABLE));
-  if (pspec->flags & G_PARAM_WRITABLE)
+  if (!is_gproperty && (pspec->flags & G_PARAM_WRITABLE))
     g_return_if_fail (class->set_property != NULL);
-  if (pspec->flags & G_PARAM_READABLE)
+  if (!is_gproperty && (pspec->flags & G_PARAM_READABLE))
     g_return_if_fail (class->get_property != NULL);
-  g_return_if_fail (property_id > 0);
-  g_return_if_fail (PARAM_SPEC_PARAM_ID (pspec) == 0);	/* paranoid */
+  if (is_gproperty)
+    {
+      g_return_if_fail (property_id > 0);
+      g_return_if_fail (PARAM_SPEC_PARAM_ID (pspec) == 0); /* paranoid */
+    }
   if (pspec->flags & G_PARAM_CONSTRUCT)
     g_return_if_fail ((pspec->flags & G_PARAM_CONSTRUCT_ONLY) == 0);
   if (pspec->flags & (G_PARAM_CONSTRUCT | G_PARAM_CONSTRUCT_ONLY))
@@ -560,7 +567,7 @@ g_object_class_install_property (GObjectClass *class,
 
   install_property_internal (G_OBJECT_CLASS_TYPE (class), property_id, pspec);
 
-  if (G_IS_PROPERTY (pspec))
+  if (is_gproperty)
     g_property_set_installed ((GProperty *) pspec, class, G_OBJECT_CLASS_TYPE (class));
 
   if (pspec->flags & (G_PARAM_CONSTRUCT | G_PARAM_CONSTRUCT_ONLY))
@@ -667,12 +674,15 @@ g_object_class_install_properties (GObjectClass  *oclass,
   for (i = 1; i < n_pspecs; i++)
     {
       GParamSpec *pspec = pspecs[i];
+      gboolean is_gproperty;
 
       g_return_if_fail (pspec != NULL);
 
-      if (!G_IS_PROPERTY (pspec) && (pspec->flags & G_PARAM_WRITABLE) != 0)
+      is_gproperty = G_IS_PROPERTY (pspec);
+
+      if (!is_gproperty && (pspec->flags & G_PARAM_WRITABLE) != 0)
         g_return_if_fail (oclass->set_property != NULL);
-      if (!G_IS_PROPERTY (pspec) && (pspec->flags & G_PARAM_READABLE) != 0)
+      if (!is_gproperty && (pspec->flags & G_PARAM_READABLE) != 0)
         g_return_if_fail (oclass->get_property != NULL);
       g_return_if_fail (PARAM_SPEC_PARAM_ID (pspec) == 0);	/* paranoid */
       if (pspec->flags & G_PARAM_CONSTRUCT)
@@ -683,7 +693,7 @@ g_object_class_install_properties (GObjectClass  *oclass,
       oclass->flags |= CLASS_HAS_PROPS_FLAG;
       install_property_internal (oclass_type, i, pspec);
 
-      if (G_IS_PROPERTY (pspec))
+      if (is_gproperty)
         g_property_set_installed ((GProperty *) pspec, oclass, G_OBJECT_CLASS_TYPE (oclass));
 
       if (pspec->flags & (G_PARAM_CONSTRUCT | G_PARAM_CONSTRUCT_ONLY))
@@ -1128,6 +1138,26 @@ g_object_dispose_properties (GObject *object)
 }
 
 static void
+g_object_finalize_properties (GObject *object)
+{
+  GParamSpec **pspecs;
+  guint n, i;
+
+  pspecs = g_param_spec_pool_list (pspec_pool,
+				   G_OBJECT_TYPE (object),
+				   &n);
+  for (i = 0; i < n; i++)
+    {
+      if (!G_IS_PROPERTY (pspecs[i]))
+        continue;
+
+      g_property_finalize (G_PROPERTY (pspecs[i]), object);
+    }
+
+  g_free (pspecs);
+}
+
+static void
 g_object_real_dispose (GObject *object)
 {
   g_object_dispose_properties (object);
@@ -1144,6 +1174,8 @@ g_object_finalize (GObject *object)
       g_critical ("object %s %p finalized while still in-construction",
                   G_OBJECT_TYPE_NAME (object), object);
     }
+
+  g_object_finalize_properties (object);
 
   g_datalist_clear (&object->qdata);
   
@@ -1429,10 +1461,7 @@ object_get_property (GObject     *object,
   if (redirect)
     pspec = redirect;    
 
-  if (G_IS_PROPERTY (pspec))
-    g_property_get_value ((GProperty *) pspec, object, value);
-  else
-    class->get_property (object, param_id, value, pspec);
+  class->get_property (object, param_id, value, pspec);
 }
 
 static inline void
@@ -1457,6 +1486,13 @@ object_set_property (GObject             *object,
   redirect = g_param_spec_get_redirect_target (pspec);
   if (redirect)
     pspec = redirect;
+
+  /* GProperty takes care of value transformation and notification */
+  if (G_IS_PROPERTY (pspec))
+    {
+      g_property_set_value (G_PROPERTY (pspec), object, value);
+      return;
+    }
 
   if (G_UNLIKELY (!enable_diagnostic))
     {
@@ -1493,25 +1529,14 @@ object_set_property (GObject             *object,
     }
   else
     {
-      if (G_IS_PROPERTY (pspec))
-        {
-          /* if the setter did not emit change the property then we don't
-           * need to notify either; if it did, the notify_queue_add() will
-           * just be a no-op
-           */
-          g_property_set_value ((GProperty *) pspec, object, &tmp_value);
-        }
-      else
-        {
-          GParamSpec *notify_pspec;
+      GParamSpec *notify_pspec;
 
-          class->set_property (object, param_id, &tmp_value, pspec);
+      class->set_property (object, param_id, &tmp_value, pspec);
 
-          notify_pspec = get_notify_pspec (pspec);
+      notify_pspec = get_notify_pspec (pspec);
 
-          if (notify_pspec != NULL)
-            g_object_notify_queue_add (object, nqueue, notify_pspec);
-        }
+      if (notify_pspec != NULL)
+        g_object_notify_queue_add (object, nqueue, notify_pspec);
     }
 
   g_value_unset (&tmp_value);
@@ -2208,6 +2233,8 @@ object_set_valist_internal (GObject    *object,
   name = first_property_name;
   while (name)
     {
+      GValue value = G_VALUE_INIT;
+      gchar *error = NULL;
       GParamSpec *pspec;
 
       pspec = g_param_spec_pool_lookup (pspec_pool,
@@ -2220,14 +2247,6 @@ object_set_valist_internal (GObject    *object,
 		     G_STRFUNC,
 		     G_OBJECT_TYPE_NAME (object),
 		     name);
-	  break;
-	}
-      if (!(pspec->flags & G_PARAM_WRITABLE))
-	{
-	  g_warning ("%s: property '%s' of object class '%s' is not writable",
-		     G_STRFUNC,
-		     pspec->name,
-		     G_OBJECT_TYPE_NAME (object));
 	  break;
 	}
       if ((pspec->flags & G_PARAM_CONSTRUCT_ONLY) && !object_in_construction (object))
@@ -2246,24 +2265,32 @@ object_set_valist_internal (GObject    *object,
                                    var_args);
           if (!res)
             break;
+
+          name = va_arg (var_args, gchar *);
+
+	  continue;
         }
-      else
+
+      if (!(pspec->flags & G_PARAM_WRITABLE))
+	{
+	  g_warning ("%s: property '%s' of object class '%s' is not writable",
+		     G_STRFUNC,
+		     pspec->name,
+		     G_OBJECT_TYPE_NAME (object));
+	  break;
+	}
+
+      G_VALUE_COLLECT_INIT (&value, pspec->value_type, *var_args, 0, &error);
+      if (error)
         {
-          GValue value = G_VALUE_INIT;
-          gchar *error = NULL;
-
-          G_VALUE_COLLECT_INIT (&value, pspec->value_type, *var_args, 0, &error);
-          if (error)
-            {
-              g_warning ("%s: %s", G_STRFUNC, error);
-              g_free (error);
-              g_value_unset (&value);
-              break;
-            }
-
-          object_set_property (object, pspec, &value, nqueue);
+          g_warning ("%s: %s", G_STRFUNC, error);
+          g_free (error);
           g_value_unset (&value);
+          break;
         }
+
+      object_set_property (object, pspec, &value, nqueue);
+      g_value_unset (&value);
 
       name = va_arg (var_args, gchar*);
     }
@@ -2306,26 +2333,20 @@ object_get_valist_internal (GObject    *object,
 
   while (name != NULL)
     {
+      GValue value = G_VALUE_INIT;
       GParamSpec *pspec;
+      gchar *error;
 
       pspec = g_param_spec_pool_lookup (pspec_pool,
 					name,
 					G_OBJECT_TYPE (object),
 					TRUE);
-      if (!pspec)
+      if (pspec == NULL)
 	{
 	  g_warning ("%s: object class '%s' has no property named '%s'",
 		     G_STRFUNC,
 		     G_OBJECT_TYPE_NAME (object),
 		     name);
-	  break;
-	}
-      if (!(pspec->flags & G_PARAM_READABLE))
-	{
-	  g_warning ("%s: property '%s' of object class '%s' is not readable",
-		     G_STRFUNC,
-		     pspec->name,
-		     G_OBJECT_TYPE_NAME (object));
 	  break;
 	}
 
@@ -2338,27 +2359,35 @@ object_get_valist_internal (GObject    *object,
                                    var_args);
           if (!res)
             break;
+
+          name = va_arg (*var_args, gchar *);
+
+	  continue;
         }
-      else
+
+      if (!(pspec->flags & G_PARAM_READABLE))
+	{
+	  g_warning ("%s: property '%s' of object class '%s' is not readable",
+		     G_STRFUNC,
+		     pspec->name,
+		     G_OBJECT_TYPE_NAME (object));
+	  break;
+	}
+
+      g_value_init (&value, pspec->value_type);
+      
+      object_get_property (object, pspec, &value);
+      
+      G_VALUE_LCOPY (&value, *var_args, 0, &error);
+      if (error)
         {
-          GValue value = G_VALUE_INIT;
-          gchar *error;
-      
-          g_value_init (&value, pspec->value_type);
-      
-          object_get_property (object, pspec, &value);
-      
-          G_VALUE_LCOPY (&value, *var_args, 0, &error);
-          if (error)
-            {
-              g_warning ("%s: %s", G_STRFUNC, error);
-              g_free (error);
-              g_value_unset (&value);
-              break;
-            }
-      
+          g_warning ("%s: %s", G_STRFUNC, error);
+          g_free (error);
           g_value_unset (&value);
+          break;
         }
+      
+      g_value_unset (&value);
       
       name = va_arg (*var_args, gchar*);
     }
@@ -2502,6 +2531,8 @@ g_object_set_property (GObject	    *object,
 	       G_STRFUNC,
 	       G_OBJECT_TYPE_NAME (object),
 	       property_name);
+  else if (G_IS_PROPERTY (pspec))
+    g_property_set_value (G_PROPERTY (pspec), object, value);
   else if (!(pspec->flags & G_PARAM_WRITABLE))
     g_warning ("%s: property '%s' of object class '%s' is not writable",
                G_STRFUNC,
@@ -2544,8 +2575,6 @@ g_object_get_property (GObject	   *object,
   g_return_if_fail (property_name != NULL);
   g_return_if_fail (G_IS_VALUE (value));
   
-  g_object_ref (object);
-  
   pspec = g_param_spec_pool_lookup (pspec_pool,
 				    property_name,
 				    G_OBJECT_TYPE (object),
@@ -2555,7 +2584,16 @@ g_object_get_property (GObject	   *object,
 	       G_STRFUNC,
 	       G_OBJECT_TYPE_NAME (object),
 	       property_name);
-  else if (!(pspec->flags & G_PARAM_READABLE))
+
+  if (G_IS_PROPERTY (pspec))
+    {
+      g_property_get_value (G_PROPERTY (pspec), object, value);
+      return;
+    }
+
+  g_object_ref (object);
+
+  if (!(pspec->flags & G_PARAM_READABLE))
     g_warning ("%s: property '%s' of object class '%s' is not readable",
                G_STRFUNC,
                pspec->name,
@@ -2592,7 +2630,7 @@ g_object_get_property (GObject	   *object,
 	  g_value_unset (&tmp_value);
 	}
     }
-  
+
   g_object_unref (object);
 }
 

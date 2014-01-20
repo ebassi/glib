@@ -448,9 +448,9 @@ void            g_property_set_installed       (GProperty *property,
                                                 GType      class_gtype);
 void            g_property_init_default        (GProperty *property,
                                                 gpointer   object);
-void            g_property_dispose             (GProperty *property,
-                                                gpointer   gobject);
-
+void            g_property_unset               (GProperty *property,
+                                                gpointer   gobject,
+                                                gboolean   clear);
 
 G_END_DECLS
 

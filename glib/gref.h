@@ -49,6 +49,9 @@ gpointer        g_ref_acquire           (gpointer       ref);
 GLIB_AVAILABLE_IN_2_44
 void            g_ref_release           (gpointer       ref);
 
+GLIB_AVAILABLE_IN_2_44
+char *          g_string_ref_new        (const char    *str);
+
 G_END_DECLS
 
 #endif /* __G_REF_H__ */

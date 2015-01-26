@@ -349,3 +349,35 @@ g_ref_release (gpointer ref)
         g_ref_destroy (ref);
     }
 }
+
+/**
+ * g_string_ref_new:
+ * @str: the string to reference
+ *
+ * Creates a new reference counted string.
+ *
+ * You can acquire a reference on the string using g_ref_acquire() and
+ * release it using g_ref_release().
+ *
+ * The returned string can be used with any string utility function
+ * transparently. Instead of copying the string, use the reference
+ * counting API to acquire and release references when needed.
+ *
+ * Once the last reference on the string is released, the string will
+ * be freed.
+ *
+ * Returns: a reference counted string
+ *
+ * Since: 2.44
+ */
+char *
+g_string_ref_new (const char *str)
+{
+  gsize len = strlen (str);
+  char *res = g_ref_alloc (len + 1, NULL);
+
+  memcpy (res, str, len);
+  res[len] = '\0';
+
+  return res;
+}

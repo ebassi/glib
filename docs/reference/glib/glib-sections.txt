@@ -1005,6 +1005,32 @@ g_mem_profile
 </SECTION>
 
 <SECTION>
+<FILE>refcount</FILE>
+g_ref_new
+g_ref_new0
+
+<SUBSECTION>
+g_ref_alloc
+g_ref_alloc0
+
+<SUBSECTION>
+g_atomic_ref_alloc
+g_atomic_ref_alloc0
+g_ref_is_atomic
+g_ref_make_atomic
+
+<SUBSECTION>
+g_ref_dup
+g_ref_realloc
+g_ref_acquire
+g_ref_release
+g_ref_destroy
+
+<SUBSECTION>
+g_string_ref_new
+</SECTION>
+
+<SECTION>
 <TITLE>Warnings and Assertions</TITLE>
 <FILE>warnings</FILE>
 g_print

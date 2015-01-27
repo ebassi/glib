@@ -184,6 +184,24 @@ g_strv_get_type (void)
   return g_define_type_id__volatile;
 }
 
+GType
+g_string_ref_get_type (void)
+{
+  static volatile gsize g_define_type_id__volatile = 0;
+
+  if (g_once_init_enter (&g_define_type_id__volatile))
+    {
+      GType g_define_type_id =
+        g_boxed_type_register_static (g_intern_static_string ("GStringRef"),
+                                      (GBoxedCopyFunc) g_ref_acquire,
+                                      (GBoxedFreeFunc) g_ref_release);
+
+      g_once_init_leave (&g_define_type_id__volatile, g_define_type_id);
+    }
+
+  return g_define_type_id__volatile;
+}
+
 /**
  * g_variant_get_gtype:
  *

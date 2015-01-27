@@ -447,6 +447,29 @@ g_ref_make_atomic (gpointer ref)
 }
 
 /**
+ * g_ref_is_atomic:
+ * @ref: a reference counted memory area
+ *
+ * Checks whether the reference counting operations are atomic or not.
+ *
+ * Returns: %TRUE if the reference counting is atomic
+ *
+ * Since: 2.44
+ */
+gboolean
+g_ref_is_atomic (gpointer ref)
+{
+  GRef *real = G_REF (ref);
+
+  g_return_val_if_fail (ref != NULL, FALSE);
+#ifdef G_ENABLE_DEBUG
+  g_return_val_if_fail (g_is_ref (ref), FALSE);
+#endif
+
+  return real->ref_count < 0;
+}
+
+/**
  * g_string_ref_new:
  * @str: the string to reference
  *

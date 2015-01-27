@@ -41,6 +41,10 @@ GLIB_AVAILABLE_IN_2_44
 gpointer        g_atomic_ref_alloc0     (gsize          alloc_size,
                                          GDestroyNotify notify) G_GNUC_MALLOC G_GNUC_ALLOC_SIZE (1);
 
+#define g_ref_new(Type,free_func)       g_ref_alloc (sizeof (Type), (GDestroyNotify) free_func)
+
+#define g_ref_new0(Type,free_func)      g_ref_alloc0 (sizeof (Type), (GDestroyNotify) free_func)
+
 GLIB_AVAILABLE_IN_2_44
 void            g_ref_destroy           (gpointer       ref);
 

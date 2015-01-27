@@ -35,6 +35,7 @@
 #include "gref.h"
 
 #include "gmessages.h"
+#include "gtestutils.h"
 #include "valgrind.h"
 
 #include <string.h>
@@ -54,8 +55,6 @@ struct _GRef
   gsize alloc_size;
 
   GDestroyNotify notify;
-
-  guint is_atomic : 1;
 };
 
 #ifdef G_ENABLE_DEBUG
@@ -173,10 +172,9 @@ g_ref_alloc_internal (gsize          alloc_size,
 #endif
 
   real = (GRef *) allocated;
-  real->ref_count = 1;
+  real->ref_count = atomic ? -1 : 1;
   real->notify = notify;
   real->alloc_size = alloc_size;
-  real->is_atomic = atomic;
 
   return allocated + private_size;
 }
@@ -314,7 +312,6 @@ g_ref_realloc (gpointer ref,
 
   GDestroyNotify old_notify = real->notify;
   int old_ref_count = real->ref_count;
-  int old_atomic = real->is_atomic;
 
   if (RUNNING_ON_VALGRIND)
     {
@@ -333,7 +330,6 @@ g_ref_realloc (gpointer ref,
   real->ref_count = old_ref_count;
   real->notify = old_notify;
   real->alloc_size = new_size;
-  real->is_atomic = old_atomic;
 
   return allocated + private_size;
 }
@@ -380,8 +376,8 @@ g_ref_acquire (gpointer ref)
   g_return_val_if_fail (g_is_ref (ref), ref);
 #endif
 
-  if (real->is_atomic)
-    g_atomic_int_add (&real->ref_count, 1);
+  if (g_atomic_int_get (&real->ref_count) < 0)
+    g_atomic_int_add (&real->ref_count, -1);
   else
     real->ref_count += 1;
 
@@ -402,21 +398,52 @@ void
 g_ref_release (gpointer ref)
 {
   GRef *real = G_REF (ref);
+  int ref_count;
 
   g_return_if_fail (ref != NULL);
+#ifdef G_ENABLE_DEBUG
+  g_return_if_fail (g_is_ref (ref));
+#endif
 
-  if (real->is_atomic)
-    {
-      if (g_atomic_int_dec_and_test (&real->ref_count))
-        g_ref_destroy (ref);
-    }
-  else
-    {
-      real->ref_count -= 1;
+again:
+  ref_count = g_atomic_int_get (&real->ref_count);
+  g_assert (ref_count != 0);
 
-      if (real->ref_count == 0)
-        g_ref_destroy (ref);
-    }
+  if (ref_count == -1 || ref_count == 1)
+    g_ref_destroy (ref);
+  else if (ref_count > 0)
+    real->ref_count -= 1;
+  else if (G_UNLIKELY (!g_atomic_int_compare_and_exchange (&real->ref_count,
+                                                           ref_count,
+                                                           ref_count + 1)))
+    goto again;
+}
+
+/**
+ * g_ref_make_atomic:
+ * @ref: a reference counted memory area
+ *
+ * Makes reference count operations on a reference counted memory area
+ * always atomic.
+ *
+ * Since: 2.44
+ */
+void
+g_ref_make_atomic (gpointer ref)
+{
+  GRef *real = G_REF (ref);
+  int ref_count;
+
+  g_return_if_fail (ref != NULL);
+#ifdef G_ENABLE_DEBUG
+  g_return_if_fail (g_is_ref (ref));
+#endif
+
+  ref_count = g_atomic_int_get (&real->ref_count);
+  if (ref_count < 0)
+    return;
+
+  real->ref_count = -ref_count;
 }
 
 /**

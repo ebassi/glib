@@ -52,6 +52,8 @@ GLIB_AVAILABLE_IN_2_44
 gpointer        g_ref_dup               (gconstpointer  data,
                                          gsize          alloc_size,
                                          GDestroyNotify notify) G_GNUC_WARN_UNUSED_RESULT;
+GLIB_AVAILABLE_IN_2_44
+void            g_ref_make_atomic       (gpointer       ref);
 
 GLIB_AVAILABLE_IN_2_44
 void            g_ref_destroy           (gpointer       ref);

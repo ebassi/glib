@@ -292,6 +292,75 @@ g_atomic_ref_alloc0 (gsize          alloc_size,
 }
 
 /**
+ * g_ref_realloc:
+ * @ref: a reference counted memory area to reallocate
+ * @new_size: new size of the memory area
+ *
+ * Reallocates a reference counted memory area to @new_size.
+ *
+ * The reference count is kept at the same value.
+ *
+ * Returns: the newly reallocated memory
+ *
+ * Since: 2.44
+ */
+gpointer
+g_ref_realloc (gpointer ref,
+               gsize    new_size)
+{
+  GRef *real = G_REF (ref);
+  gsize private_size = G_REF_SIZE;
+  char *allocated;
+
+  GDestroyNotify old_notify = real->notify;
+  int old_ref_count = real->ref_count;
+  int old_atomic = real->is_atomic;
+
+  if (RUNNING_ON_VALGRIND)
+    {
+      private_size += ALIGN_STRUCT (1);
+
+      allocated = g_realloc (real, private_size + new_size + sizeof (gpointer));
+      *(gpointer *) (allocated + private_size + new_size) = allocated + ALIGN_STRUCT (1);
+
+      VALGRIND_MALLOCLIKE_BLOCK (allocated + private_size, new_size + sizeof (gpointer), 0, TRUE);
+      VALGRIND_MALLOCLIKE_BLOCK (allocated + ALIGN_STRUCT (1), private_size - ALIGN_STRUCT (1), 0, TRUE);
+    }
+  else
+    allocated = g_realloc (real, private_size + new_size);
+
+  real = (GRef *) allocated;
+  real->ref_count = old_ref_count;
+  real->notify = old_notify;
+  real->alloc_size = new_size;
+  real->is_atomic = old_atomic;
+
+  return allocated + private_size;
+}
+
+/**
+ * g_ref_dup:
+ * @ref: a reference counted memory area
+ *
+ * Duplicates existing data into a reference counted memory area.
+ *
+ * Returns: the newly allocated reference counted area
+ *
+ * Since: 2.44
+ */
+gpointer
+g_ref_dup (gconstpointer  data,
+           gsize          alloc_size,
+           GDestroyNotify notify)
+{
+  gpointer res = g_ref_alloc (alloc_size, notify);
+
+  memcpy (res, data, alloc_size);
+
+  return res;
+}
+
+/**
  * g_ref_acquire:
  * @ref: a reference counted memory area
  *

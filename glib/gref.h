@@ -46,6 +46,14 @@ gpointer        g_atomic_ref_alloc0     (gsize          alloc_size,
 #define g_ref_new0(Type,free_func)      g_ref_alloc0 (sizeof (Type), (GDestroyNotify) free_func)
 
 GLIB_AVAILABLE_IN_2_44
+gpointer        g_ref_realloc           (gpointer       ref,
+                                         gsize          new_size) G_GNUC_WARN_UNUSED_RESULT;
+GLIB_AVAILABLE_IN_2_44
+gpointer        g_ref_dup               (gconstpointer  data,
+                                         gsize          alloc_size,
+                                         GDestroyNotify notify) G_GNUC_WARN_UNUSED_RESULT;
+
+GLIB_AVAILABLE_IN_2_44
 void            g_ref_destroy           (gpointer       ref);
 
 GLIB_AVAILABLE_IN_2_44
